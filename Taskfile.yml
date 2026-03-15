@@ -1,0 +1,32 @@
+version: "3"
+
+vars:
+  VERSION:
+    sh: date -u '+%Y%m%d%H%M%S'
+  LDFLAGS: -X github.com/dinacomputer/cli/internal/cli.Version={{.VERSION}}
+
+tasks:
+  build:
+    desc: Build the dina binary
+    cmds:
+      - go build -ldflags "{{.LDFLAGS}}" -o dina ./cmd/dina
+
+  install:
+    desc: Install dina to GOPATH/bin
+    cmds:
+      - go install -ldflags "{{.LDFLAGS}}" ./cmd/dina
+
+  tidy:
+    desc: Run go mod tidy
+    cmds:
+      - go mod tidy
+
+  lint:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  clean:
+    desc: Remove build artifacts
+    cmds:
+      - rm -f dina
