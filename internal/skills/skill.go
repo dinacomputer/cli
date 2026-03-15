@@ -5,133 +5,159 @@ package skills
 func SkillMD() string {
 	return `---
 name: dina-cli
-description: >
-  Use the Dina CLI to deploy applications, view logs, manage env vars, hostnames,
-  and deployments on the Dina platform. Activate this skill when the user mentions
-  deploying, checking app status, viewing logs, setting environment variables,
-  managing hostnames, or any Dina platform operation.
-metadata:
-  author: dinacomputer
-  version: "0.1"
+description: Deploy applications, manage apps, view logs, set env vars, and configure hostnames on the Dina platform. Use when the user wants to deploy code, check app status, view logs, manage environment variables, configure custom domains, or perform any Dina platform operation.
 ---
 
 # Dina CLI
 
-The Dina CLI (` + "`dina`" + `) is the command-line tool for the Dina platform.
+## Quick start
 
-## Authentication
+` + "```bash" + `
+# authenticate
+dina auth login
 
-Set the ` + "`DINA_API_TOKEN`" + ` environment variable before using the CLI.
-Optionally set ` + "`DINA_API_URL`" + ` to override the default API endpoint (` + "`https://dina.sh/api/v1`" + `).
+# create and deploy an app
+dina apps create my-app
+dina deploy -a my-app
+
+# check status
+dina apps info -a my-app
+dina apps logs -a my-app
+` + "```" + `
+
+## Tips
+
+- Apps must listen on port 8080. Always set PORT=8080 or configure the app to use port 8080.
 
 ## Commands
 
-### dina deploy
-
-Deploy an application. If ` + "`--tag`" + ` is provided, deploys a pre-built image.
-Otherwise, the current directory is zipped and uploaded as source code.
+### Authentication
 
 ` + "```bash" + `
-# Deploy from source (zips current directory)
+dina auth login
+dina auth logout
+dina auth status
+` + "```" + `
+
+### Deploy
+
+Deploy from source (zips and uploads current directory):
+
+` + "```bash" + `
 dina deploy -a my-app
+` + "```" + `
 
-# Deploy a pre-built image
+Deploy a pre-built image:
+
+` + "```bash" + `
 dina deploy -a my-app --tag registry.example.com/my-app:v1.2
+` + "```" + `
 
-# Deploy with a specific replica count
+Deploy with replica count:
+
+` + "```bash" + `
 dina deploy -a my-app --replicas 3
+dina deploy -a my-app --tag nginx:latest --replicas 2
 ` + "```" + `
 
-| Flag       | Short | Required | Description                                    |
-|------------|-------|----------|------------------------------------------------|
-| --app      | -a    | Yes      | Application name                               |
-| --tag      | -t    | No       | Pre-built image tag (omit to upload source)    |
-| --replicas |       | No       | Number of replicas (default: 1)                |
-
-### dina apps create
-
-Create a new application.
+### Apps
 
 ` + "```bash" + `
+# list all apps
+dina apps list
+
+# create a new app
 dina apps create my-app
-` + "```" + `
 
-### dina apps info
-
-Show application details including hostnames and latest deployment.
-
-` + "```bash" + `
+# show app details (URL, hostnames, latest deployment)
 dina apps info -a my-app
-` + "```" + `
 
-### dina apps delete
+# rename an app
+dina apps update -a my-app --name new-name
 
-Delete an application.
-
-` + "```bash" + `
+# delete an app
 dina apps delete -a my-app
 ` + "```" + `
 
-### dina apps logs
-
-View runtime logs for an application.
+### Logs
 
 ` + "```bash" + `
+# runtime logs (default 100 lines)
 dina apps logs -a my-app
 dina apps logs -a my-app -n 50
-` + "```" + `
 
-| Flag    | Short | Required | Description                        |
-|---------|-------|----------|------------------------------------|
-| --app   | -a    | Yes      | Application name                   |
-| --lines | -n    | No       | Number of log lines (default: 100) |
-
-### dina apps deployments
-
-List all deployments for an application.
-
-` + "```bash" + `
+# build logs for a specific deployment
 dina apps deployments -a my-app
-` + "```" + `
-
-### dina apps deployments logs
-
-View build logs for a specific deployment.
-
-` + "```bash" + `
 dina apps deployments logs -a my-app --id <deployment-id>
 ` + "```" + `
 
-### dina apps env set
-
-Set environment variables (KEY=VALUE pairs).
+### Environment variables
 
 ` + "```bash" + `
-dina apps env set -a my-app DATABASE_URL=postgres://... SECRET_KEY=abc123
+dina apps env set -a my-app DATABASE_URL=postgres://localhost/mydb
+dina apps env set -a my-app KEY1=val1 KEY2=val2
 ` + "```" + `
 
-### dina apps hostnames add
-
-Add a custom hostname to an application.
+### Custom hostnames
 
 ` + "```bash" + `
 dina apps hostnames add -a my-app example.com
-` + "```" + `
-
-### dina apps hostnames remove
-
-Remove a custom hostname.
-
-` + "```bash" + `
 dina apps hostnames remove -a my-app example.com
 ` + "```" + `
 
-## Typical workflow
+### Users (admin)
 
-1. Create the app: ` + "`dina apps create my-app`" + `
-2. Set env vars: ` + "`dina apps env set -a my-app PORT=8080`" + `
-3. Deploy: ` + "`dina deploy -a my-app`" + `
-4. Check logs: ` + "`dina apps logs -a my-app`" + `
-5. Add a custom domain: ` + "`dina apps hostnames add -a my-app mydomain.com`" + `
+` + "```bash" + `
+dina users list
+dina users activate <user-id>
+` + "```" + `
+
+### Other
+
+` + "```bash" + `
+dina version
+dina install --skills
+` + "```" + `
+
+## Common flag patterns
+
+The ` + "`-a`" + ` / ` + "`--app`" + ` flag specifies the app name. It is required for most commands:
+
+` + "```bash" + `
+dina deploy -a my-app
+dina apps info -a my-app
+dina apps logs -a my-app
+dina apps env set -a my-app KEY=value
+dina apps hostnames add -a my-app example.com
+dina apps deployments -a my-app
+dina apps delete -a my-app
+` + "```" + `
+
+## Example: Deploy a project from scratch
+
+` + "```bash" + `
+dina auth login
+dina apps create my-api
+dina apps env set -a my-api PORT=8080 DATABASE_URL=postgres://localhost/mydb
+dina deploy -a my-api
+dina apps logs -a my-api
+dina apps hostnames add -a my-api api.example.com
+` + "```" + `
+
+## Example: Deploy a pre-built image
+
+` + "```bash" + `
+dina apps create my-service
+dina deploy -a my-service --tag ghcr.io/org/my-service:v1.0 --replicas 2
+dina apps info -a my-service
+` + "```" + `
+
+## Example: Debug a failing deployment
+
+` + "```bash" + `
+dina apps deployments -a my-app
+dina apps deployments logs -a my-app --id <deployment-id>
+dina apps logs -a my-app -n 200
+` + "```" + `
 `
 }
