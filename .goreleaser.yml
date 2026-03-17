@@ -1,0 +1,59 @@
+version: 2
+
+builds:
+  - main: ./cmd/dina
+    binary: dina
+    ldflags:
+      - -s -w -X github.com/dinacomputer/cli/internal/cli.Version={{.Version}}
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: tar.gz
+    name_template: "dina_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+
+brews:
+  - repository:
+      owner: dinacomputer
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/dinacomputer/cli"
+    description: "CLI for the Dina platform"
+    license: "MIT"
+    install: |
+      bin.install "dina"
+    test: |
+      system "#{bin}/dina", "version"
+
+nfpms:
+  - package_name: dina
+    homepage: "https://github.com/dinacomputer/cli"
+    description: "CLI for the Dina platform"
+    license: "MIT"
+    formats:
+      - deb
+      - rpm
+    bindir: /usr/bin
