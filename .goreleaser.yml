@@ -35,7 +35,8 @@ changelog:
       - "^chore:"
 
 brews:
-  - repository:
+  - name: dina
+    repository:
       owner: dinacomputer
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
