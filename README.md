@@ -28,6 +28,18 @@ To install a specific version:
 VERSION=0.1.0 curl -sSL https://raw.githubusercontent.com/dinacomputer/cli/main/install.sh | sh
 ```
 
+### Nix
+
+```sh
+nix profile install github:dinacomputer/cli
+```
+
+Or run without installing:
+
+```sh
+nix run github:dinacomputer/cli
+```
+
 ### Go
 
 ```sh

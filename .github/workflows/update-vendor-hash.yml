@@ -1,0 +1,61 @@
+name: Update Nix vendor hash
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - go.mod
+      - go.sum
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-vendor-hash:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Get current vendorHash
+        id: current
+        run: |
+          hash=$(grep 'vendorHash' flake.nix | sed 's/.*"\(.*\)".*/\1/')
+          echo "hash=$hash" >> "$GITHUB_OUTPUT"
+
+      - name: Compute new vendorHash
+        id: new
+        run: |
+          hash=$(nix build 2>&1 | grep 'got:' | awk '{print $2}') || true
+          if [ -z "$hash" ]; then
+            echo "Build succeeded — vendorHash is already correct"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "hash=$hash" >> "$GITHUB_OUTPUT"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update flake.nix
+        if: steps.new.outputs.changed == 'true'
+        run: |
+          sed -i "s|vendorHash = \"${{ steps.current.outputs.hash }}\"|vendorHash = \"${{ steps.new.outputs.hash }}\"|" flake.nix
+
+      - name: Verify build
+        if: steps.new.outputs.changed == 'true'
+        run: nix build
+
+      - name: Create pull request
+        if: steps.new.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: update nix vendorHash"
+          branch: chore/update-nix-vendor-hash
+          title: "chore: update nix vendorHash"
+          body: |
+            Auto-updated `vendorHash` in `flake.nix` after `go.mod`/`go.sum` changed.
+
+            Old: `${{ steps.current.outputs.hash }}`
+            New: `${{ steps.new.outputs.hash }}`
+          delete-branch: true
