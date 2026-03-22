@@ -22,6 +22,7 @@ type App struct {
 	Name      string     `json:"name"`
 	OwnerID   string     `json:"owner_id"`
 	URL       string     `json:"url"`
+	Namespace string     `json:"namespace"`
 	CreatedAt time.Time  `json:"created_at"`
 	UpdatedAt time.Time  `json:"updated_at"`
 	Hostnames []Hostname `json:"hostnames,omitempty"`
@@ -44,6 +45,7 @@ type UpdateAppInput struct {
 
 type DeployInput struct {
 	Image    string `json:"image,omitempty"`
+	Port     *int   `json:"port,omitempty"`
 	Replicas *int   `json:"replicas,omitempty"`
 }
 
@@ -53,6 +55,7 @@ type Deployment struct {
 	SourceType string    `json:"source_type"`
 	SourceRef  string    `json:"source_ref"`
 	Status     string    `json:"status"`
+	Port       int       `json:"port"`
 	Replicas   int       `json:"replicas"`
 	Image      string    `json:"image,omitempty"`
 	BuildLog   string    `json:"build_log,omitempty"`

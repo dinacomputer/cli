@@ -26,8 +26,8 @@ var appsDeploymentsCmd = &cobra.Command{
 			return nil
 		}
 		for _, d := range deps {
-			fmt.Printf("%s  %-10s  %-12s  %s  replicas=%d\n",
-				d.ID, d.Status, d.SourceType, d.CreatedAt.Format("2006-01-02 15:04"), d.Replicas)
+			fmt.Printf("%s  %-10s  %-12s  %s  port=%d  replicas=%d\n",
+				d.ID, d.Status, d.SourceType, d.CreatedAt.Format("2006-01-02 15:04"), d.Port, d.Replicas)
 		}
 		return nil
 	},

@@ -12,6 +12,7 @@ import (
 var (
 	deployApp      string
 	deployTag      string
+	deployPort     int
 	deployReplicas int
 )
 
@@ -25,6 +26,10 @@ var deployCmd = &cobra.Command{
 			return err
 		}
 
+		var port *int
+		if cmd.Flags().Changed("port") {
+			port = &deployPort
+		}
 		var replicas *int
 		if cmd.Flags().Changed("replicas") {
 			replicas = &deployReplicas
@@ -33,6 +38,9 @@ var deployCmd = &cobra.Command{
 		if deployTag != "" {
 			// Deploy with a pre-built image.
 			input := api.DeployInput{Image: deployTag}
+			if port != nil {
+				input.Port = port
+			}
 			if replicas != nil {
 				input.Replicas = replicas
 			}
@@ -72,12 +80,14 @@ func printDeployment(dep *api.Deployment) {
 	if dep.Image != "" {
 		fmt.Printf("  Image:   %s\n", dep.Image)
 	}
+	fmt.Printf("  Port:    %d\n", dep.Port)
 	fmt.Printf("  Replicas: %d\n", dep.Replicas)
 }
 
 func init() {
 	deployCmd.Flags().StringVarP(&deployApp, "app", "a", "", "Application name")
 	deployCmd.Flags().StringVarP(&deployTag, "tag", "t", "", "Pre-built image tag (if omitted, source is uploaded)")
+	deployCmd.Flags().IntVarP(&deployPort, "port", "p", 8080, "Container port the app listens on")
 	deployCmd.Flags().IntVar(&deployReplicas, "replicas", 1, "Number of replicas")
 	deployCmd.MarkFlagRequired("app")
 	rootCmd.AddCommand(deployCmd)

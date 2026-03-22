@@ -26,6 +26,7 @@ var appsInfoCmd = &cobra.Command{
 		fmt.Printf("Name:       %s\n", a.Name)
 		fmt.Printf("ID:         %s\n", a.ID)
 		fmt.Printf("URL:        %s\n", a.URL)
+		fmt.Printf("Namespace:  %s\n", a.Namespace)
 		fmt.Printf("Owner:      %s\n", a.OwnerID)
 		fmt.Printf("Created:    %s\n", a.CreatedAt.Format("2006-01-02 15:04:05"))
 		fmt.Printf("Updated:    %s\n", a.UpdatedAt.Format("2006-01-02 15:04:05"))
@@ -42,6 +43,7 @@ var appsInfoCmd = &cobra.Command{
 			fmt.Printf("\nLatest deployment:\n")
 			fmt.Printf("  ID:       %s\n", d.ID)
 			fmt.Printf("  Status:   %s\n", d.Status)
+			fmt.Printf("  Port:     %d\n", d.Port)
 			fmt.Printf("  Replicas: %d\n", d.Replicas)
 			if d.Image != "" {
 				fmt.Printf("  Image:    %s\n", d.Image)
