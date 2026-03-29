@@ -10,6 +10,27 @@ description: Deploy applications, manage apps, view logs, set env vars, and conf
 
 # Dina CLI
 
+## Introduction
+
+Dina is a platform-as-a-service (PaaS) for deploying and managing containerized applications. With the Dina CLI you can:
+
+- **Deploy** applications from source code (current directory) or pre-built container images
+- **Manage apps**: create, update, delete, and inspect applications
+- **View logs**: stream runtime logs and build logs for deployments
+- **Configure environment variables** for your applications
+- **Manage custom hostnames** for your apps
+- **Manage users** (admin operations)
+
+## Session start
+
+At the beginning of every session, run:
+
+` + "```bash" + `
+dina help
+` + "```" + `
+
+This prints the current list of available commands and their descriptions. Always run this before issuing any other Dina command so you know exactly which commands and flags are available in the installed version.
+
 ## Quick start
 
 ` + "```bash" + `
@@ -90,6 +111,12 @@ dina apps logs -a my-app -n 50
 dina apps deployments -a my-app
 dina apps deployments logs -a my-app --id <deployment-id>
 ` + "```" + `
+
+#### Log format
+
+**Runtime logs** (` + "`dina apps logs`" + `): plain-text container output printed directly to stdout, one line per log entry exactly as written by your application. There is no structured JSON wrapper.
+
+**Build logs** (` + "`dina apps deployments logs`" + `): full build output from the container image build process (e.g., Dockerfile steps, package installs, compile output), printed as plain text.
 
 ### Environment variables
 
