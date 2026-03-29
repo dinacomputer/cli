@@ -10,7 +10,7 @@ import (
 
 var appsEnvCmd = &cobra.Command{
 	Use:   "env",
-	Short: "Manage environment variables",
+	Short: "Manage environment variables for an application",
 }
 
 var appsEnvSetApp string
