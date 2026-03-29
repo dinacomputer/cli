@@ -10,7 +10,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "dina",
 	Short: "Dina CLI",
-	Long:  "Dina CLI – deploy, manage apps, and install agent skills.",
+	Long:  "Dina CLI – deploy applications, manage apps and environment variables, view logs, configure custom hostnames, and install AI agent skills for the Dina platform.",
 }
 
 func Execute() {

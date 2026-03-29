@@ -14,7 +14,7 @@ var (
 
 var appsUpdateCmd = &cobra.Command{
 	Use:   "update",
-	Short: "Update an application",
+	Short: "Update application settings (e.g. rename)",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := api.NewClient()
 		if err != nil {

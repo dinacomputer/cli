@@ -9,7 +9,7 @@ import (
 
 var appsHostnamesCmd = &cobra.Command{
 	Use:   "hostnames",
-	Short: "Manage custom hostnames",
+	Short: "Manage custom hostnames for an application",
 }
 
 var appsHostnamesAddApp string
