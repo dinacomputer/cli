@@ -29,41 +29,7 @@ At the beginning of every session, run:
 dina help
 ` + "```" + `
 
-This prints the current list of available commands and their descriptions. Always run this before issuing any other Dina command so you know exactly which commands and flags are available in the installed version.
-
-Example output:
-
-` + "```" + `
-Dina CLI – deploy applications, manage apps and environment variables, view logs,
-configure custom hostnames, and install AI agent skills for the Dina platform.
-
-Usage:
-  dina [command]
-
-Available Commands:
-  apps         Manage applications
-  auth         Manage authentication
-  check-update Check if a newer version is available
-  completion   Generate the autocompletion script for the specified shell
-  deploy       Deploy an application
-  help         Help about any command
-  install      Install resources
-  update       Update dina to the latest version
-  users        Manage users (admin only)
-  version      Print the CLI version
-
-Flags:
-  -h, --help   help for dina
-
-Use "dina [command] --help" for more information about a command.
-` + "```" + `
-
-For sub-command details, run ` + "`dina [command] --help`" + `, e.g.:
-
-` + "```bash" + `
-dina apps --help
-dina deploy --help
-` + "```" + `
+This prints the current list of available commands and their descriptions. Always run this before issuing any other Dina command so you know exactly which commands and flags are available in the installed version. For sub-command details, run ` + "`dina [command] --help`" + `.
 
 ## Quick start
 
