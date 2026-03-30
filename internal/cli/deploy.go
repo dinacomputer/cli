@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/dinacomputer/cli/internal/archive"
@@ -10,10 +11,11 @@ import (
 )
 
 var (
-	deployApp      string
-	deployTag      string
-	deployPort     int
-	deployReplicas int
+	deployApp       string
+	deployTag       string
+	deployPort      int
+	deployReplicas  int
+	deployBuildArgs []string
 )
 
 var deployCmd = &cobra.Command{
@@ -35,6 +37,11 @@ var deployCmd = &cobra.Command{
 			replicas = &deployReplicas
 		}
 
+		buildArgs, err := parseBuildArgs(deployBuildArgs)
+		if err != nil {
+			return err
+		}
+
 		if deployTag != "" {
 			// Deploy with a pre-built image.
 			input := api.DeployInput{Image: deployTag}
@@ -43,6 +50,9 @@ var deployCmd = &cobra.Command{
 			}
 			if replicas != nil {
 				input.Replicas = replicas
+			}
+			if len(buildArgs) > 0 {
+				input.BuildArgs = buildArgs
 			}
 			dep, err := client.Deploy(deployApp, input)
 			if err != nil {
@@ -64,7 +74,7 @@ var deployCmd = &cobra.Command{
 		}
 		fmt.Printf("Uploading archive (%.1f KB)...\n", float64(len(zipData))/1024)
 
-		dep, err := client.DeploySource(deployApp, zipData)
+		dep, err := client.DeploySource(deployApp, zipData, buildArgs)
 		if err != nil {
 			return err
 		}
@@ -84,11 +94,27 @@ func printDeployment(dep *api.Deployment) {
 	fmt.Printf("  Replicas: %d\n", dep.Replicas)
 }
 
+func parseBuildArgs(raw []string) (map[string]string, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	m := make(map[string]string, len(raw))
+	for _, arg := range raw {
+		k, v, ok := strings.Cut(arg, "=")
+		if !ok {
+			return nil, fmt.Errorf("invalid build arg %q: must be KEY=VALUE", arg)
+		}
+		m[k] = v
+	}
+	return m, nil
+}
+
 func init() {
 	deployCmd.Flags().StringVarP(&deployApp, "app", "a", "", "Application name")
 	deployCmd.Flags().StringVarP(&deployTag, "tag", "t", "", "Pre-built image tag (if omitted, source is uploaded)")
 	deployCmd.Flags().IntVarP(&deployPort, "port", "p", 8080, "Container port the app listens on")
 	deployCmd.Flags().IntVar(&deployReplicas, "replicas", 1, "Number of replicas")
+	deployCmd.Flags().StringArrayVar(&deployBuildArgs, "build-arg", nil, "Build argument in KEY=VALUE format (can be repeated)")
 	deployCmd.MarkFlagRequired("app")
 	rootCmd.AddCommand(deployCmd)
 }

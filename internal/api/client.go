@@ -185,7 +185,7 @@ func (c *Client) Deploy(appName string, input DeployInput) (*Deployment, error) 
 }
 
 // DeploySource uploads a zip archive via the deploy/upload endpoint.
-func (c *Client) DeploySource(appName string, zipData []byte) (*Deployment, error) {
+func (c *Client) DeploySource(appName string, zipData []byte, buildArgs map[string]string) (*Deployment, error) {
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 
@@ -195,6 +195,16 @@ func (c *Client) DeploySource(appName string, zipData []byte) (*Deployment, erro
 	}
 	if _, err := fw.Write(zipData); err != nil {
 		return nil, err
+	}
+
+	if len(buildArgs) > 0 {
+		argsJSON, err := json.Marshal(buildArgs)
+		if err != nil {
+			return nil, err
+		}
+		if err := w.WriteField("build_args", string(argsJSON)); err != nil {
+			return nil, err
+		}
 	}
 
 	if err := w.Close(); err != nil {

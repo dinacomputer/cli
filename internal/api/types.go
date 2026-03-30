@@ -44,9 +44,10 @@ type UpdateAppInput struct {
 // ---------- Deploy ----------
 
 type DeployInput struct {
-	Image    string `json:"image,omitempty"`
-	Port     *int   `json:"port,omitempty"`
-	Replicas *int   `json:"replicas,omitempty"`
+	Image    string            `json:"image,omitempty"`
+	Port     *int              `json:"port,omitempty"`
+	Replicas *int              `json:"replicas,omitempty"`
+	BuildArgs map[string]string `json:"build_args,omitempty"`
 }
 
 type Deployment struct {
