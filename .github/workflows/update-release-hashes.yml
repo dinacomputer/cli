@@ -1,0 +1,57 @@
+name: Update Nix release hashes
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-release-hashes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - name: Get release version
+        id: version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Compute hashes
+        id: hashes
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          for platform in linux_amd64 linux_arm64 darwin_amd64 darwin_arm64; do
+            url="https://github.com/${{ github.repository }}/releases/download/v${version}/dina_${version}_${platform}.tar.gz"
+            hash=$(nix-prefetch-url --type sha256 "$url" 2>/dev/null | xargs nix hash convert --hash-algo sha256 --to sri)
+            echo "${platform}=${hash}" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Update flake.nix
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          HASH_LINUX_AMD64: ${{ steps.hashes.outputs.linux_amd64 }}
+          HASH_LINUX_ARM64: ${{ steps.hashes.outputs.linux_arm64 }}
+          HASH_DARWIN_AMD64: ${{ steps.hashes.outputs.darwin_amd64 }}
+          HASH_DARWIN_ARM64: ${{ steps.hashes.outputs.darwin_arm64 }}
+        run: |
+          sed -i "s/releasedVersion = \".*\"/releasedVersion = \"$VERSION\"/" flake.nix
+          sed -i "s|linux_amd64 = \"sha256-.*\"|linux_amd64 = \"$HASH_LINUX_AMD64\"|" flake.nix
+          sed -i "s|linux_arm64 = \"sha256-.*\"|linux_arm64 = \"$HASH_LINUX_ARM64\"|" flake.nix
+          sed -i "s|darwin_amd64 = \"sha256-.*\"|darwin_amd64 = \"$HASH_DARWIN_AMD64\"|" flake.nix
+          sed -i "s|darwin_arm64 = \"sha256-.*\"|darwin_arm64 = \"$HASH_DARWIN_ARM64\"|" flake.nix
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          commit-message: "chore: update nix release hashes for v${{ steps.version.outputs.version }}"
+          branch: chore/update-nix-release-hashes
+          title: "chore: update nix release hashes for v${{ steps.version.outputs.version }}"
+          body: |
+            Auto-updated `releasedVersion` and `releaseHashes` in `flake.nix` for release v${{ steps.version.outputs.version }}.
+          delete-branch: true
