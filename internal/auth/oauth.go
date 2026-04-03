@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -9,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -30,7 +32,9 @@ type tokenResponse struct {
 }
 
 // Login performs the full OAuth 2.0 authorization code flow with PKCE.
-func Login() (*Credentials, error) {
+// When headless is true, the browser is not opened automatically; the user
+// must visit the printed URL manually (e.g. over an SSH session).
+func Login(headless bool) (*Credentials, error) {
 	// 1. Start local callback server.
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -62,51 +66,68 @@ func Login() (*Credentials, error) {
 		url.QueryEscape("openid profile offline_access"),
 	)
 
-	fmt.Println("Opening browser to authenticate...")
-	fmt.Printf("If the browser doesn't open, visit:\n  %s\n\n", authURL)
-	openBrowser(authURL)
-
-	// 5. Wait for callback.
-	codeCh := make(chan string, 1)
-	errCh := make(chan error, 1)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Query().Get("state") != state {
-			errCh <- fmt.Errorf("state mismatch")
-			http.Error(w, "State mismatch", http.StatusBadRequest)
-			return
-		}
-		if errParam := r.URL.Query().Get("error"); errParam != "" {
-			desc := r.URL.Query().Get("error_description")
-			errCh <- fmt.Errorf("authorization error: %s — %s", errParam, desc)
-			fmt.Fprintf(w, "<html><body><h1>Authentication failed</h1><p>%s</p></body></html>", desc)
-			return
-		}
-		code := r.URL.Query().Get("code")
-		if code == "" {
-			errCh <- fmt.Errorf("no code in callback")
-			http.Error(w, "Missing code", http.StatusBadRequest)
-			return
-		}
-		fmt.Fprint(w, "<html><body><h1>Authenticated!</h1><p>You can close this tab.</p></body></html>")
-		codeCh <- code
-	})
-
-	server := &http.Server{Handler: mux}
-	go server.Serve(listener)
-
 	var code string
-	select {
-	case code = <-codeCh:
-	case err := <-errCh:
+
+	if headless {
+		listener.Close()
+
+		fmt.Printf("Visit this URL to authenticate:\n\n  %s\n\n", authURL)
+		fmt.Print("After authenticating, paste the callback URL here: ")
+
+		line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+		if err != nil {
+			return nil, fmt.Errorf("reading callback URL: %w", err)
+		}
+		code, err = parseCallbackURL(strings.TrimSpace(line), state)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		fmt.Println("Opening browser to authenticate...")
+		fmt.Printf("If the browser doesn't open, visit:\n  %s\n\n", authURL)
+		openBrowser(authURL)
+
+		// Wait for callback.
+		codeCh := make(chan string, 1)
+		errCh := make(chan error, 1)
+
+		mux := http.NewServeMux()
+		mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Query().Get("state") != state {
+				errCh <- fmt.Errorf("state mismatch")
+				http.Error(w, "State mismatch", http.StatusBadRequest)
+				return
+			}
+			if errParam := r.URL.Query().Get("error"); errParam != "" {
+				desc := r.URL.Query().Get("error_description")
+				errCh <- fmt.Errorf("authorization error: %s — %s", errParam, desc)
+				fmt.Fprintf(w, "<html><body><h1>Authentication failed</h1><p>%s</p></body></html>", desc)
+				return
+			}
+			c := r.URL.Query().Get("code")
+			if c == "" {
+				errCh <- fmt.Errorf("no code in callback")
+				http.Error(w, "Missing code", http.StatusBadRequest)
+				return
+			}
+			fmt.Fprint(w, "<html><body><h1>Authenticated!</h1><p>You can close this tab.</p></body></html>")
+			codeCh <- c
+		})
+
+		server := &http.Server{Handler: mux}
+		go server.Serve(listener)
+
+		select {
+		case code = <-codeCh:
+		case err := <-errCh:
+			server.Shutdown(context.Background())
+			return nil, err
+		case <-time.After(2 * time.Minute):
+			server.Shutdown(context.Background())
+			return nil, fmt.Errorf("timed out waiting for authentication")
+		}
 		server.Shutdown(context.Background())
-		return nil, err
-	case <-time.After(2 * time.Minute):
-		server.Shutdown(context.Background())
-		return nil, fmt.Errorf("timed out waiting for authentication")
 	}
-	server.Shutdown(context.Background())
 
 	// 6. Exchange code for tokens.
 	fmt.Println("Exchanging authorization code for tokens...")
@@ -163,6 +184,24 @@ func RefreshAccessToken(creds *Credentials) (*Credentials, error) {
 		return nil, fmt.Errorf("saving refreshed credentials: %w", err)
 	}
 	return creds, nil
+}
+
+func parseCallbackURL(raw, expectedState string) (string, error) {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", fmt.Errorf("invalid callback URL: %w", err)
+	}
+	if s := u.Query().Get("state"); s != expectedState {
+		return "", fmt.Errorf("state mismatch in callback URL")
+	}
+	if errParam := u.Query().Get("error"); errParam != "" {
+		return "", fmt.Errorf("authorization error: %s — %s", errParam, u.Query().Get("error_description"))
+	}
+	code := u.Query().Get("code")
+	if code == "" {
+		return "", fmt.Errorf("no code found in callback URL")
+	}
+	return code, nil
 }
 
 func exchangeCode(clientID, code, redirectURI, codeVerifier string) (*tokenResponse, error) {

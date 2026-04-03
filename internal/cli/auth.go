@@ -16,7 +16,8 @@ var authLoginCmd = &cobra.Command{
 	Use:   "login",
 	Short: "Authenticate with the Dina platform",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		creds, err := auth.Login()
+		headless, _ := cmd.Flags().GetBool("headless")
+		creds, err := auth.Login(headless)
 		if err != nil {
 			return err
 		}
@@ -59,6 +60,7 @@ var authStatusCmd = &cobra.Command{
 }
 
 func init() {
+	authLoginCmd.Flags().Bool("headless", false, "Don't open a browser; print the URL to visit manually")
 	authCmd.AddCommand(authLoginCmd)
 	authCmd.AddCommand(authLogoutCmd)
 	authCmd.AddCommand(authStatusCmd)
