@@ -241,6 +241,15 @@ func (c *Client) ListDeployments(appName string) ([]Deployment, error) {
 	return out.Deployments, nil
 }
 
+func (c *Client) GetDeployment(appName, deploymentID string) (*Deployment, error) {
+	req, err := c.newRequest("GET", "/apps/"+appName+"/deployments/"+deploymentID, nil)
+	if err != nil {
+		return nil, err
+	}
+	var dep Deployment
+	return &dep, c.do(req, &dep)
+}
+
 func (c *Client) GetDeploymentLogs(appName, deploymentID string) (string, error) {
 	req, err := c.newRequest("GET", "/apps/"+appName+"/deployments/"+deploymentID+"/logs", nil)
 	if err != nil {

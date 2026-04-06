@@ -81,6 +81,13 @@ dina deploy -a my-app --replicas 3
 dina deploy -a my-app --tag nginx:latest --replicas 2
 ` + "```" + `
 
+Deploy and wait for completion (blocks until running or failed):
+
+` + "```bash" + `
+dina deploy -a my-app --wait
+dina deploy -a my-app --tag nginx:latest -w
+` + "```" + `
+
 ### Apps
 
 ` + "```bash" + `

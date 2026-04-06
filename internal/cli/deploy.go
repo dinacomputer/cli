@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/dinacomputer/cli/internal/archive"
@@ -16,6 +17,7 @@ var (
 	deployPort      int
 	deployReplicas  int
 	deployBuildArgs []string
+	deployWait      bool
 )
 
 var deployCmd = &cobra.Command{
@@ -42,6 +44,8 @@ var deployCmd = &cobra.Command{
 			return err
 		}
 
+		var dep *api.Deployment
+
 		if deployTag != "" {
 			// Deploy with a pre-built image.
 			input := api.DeployInput{Image: deployTag}
@@ -54,31 +58,34 @@ var deployCmd = &cobra.Command{
 			if len(buildArgs) > 0 {
 				input.BuildArgs = buildArgs
 			}
-			dep, err := client.Deploy(deployApp, input)
+			dep, err = client.Deploy(deployApp, input)
 			if err != nil {
 				return err
 			}
-			printDeployment(dep)
-			return nil
+		} else {
+			// No tag — zip and upload source code.
+			cwd, err := os.Getwd()
+			if err != nil {
+				return err
+			}
+			fmt.Println("Packaging source code...")
+			zipData, err := archive.ZipDir(cwd)
+			if err != nil {
+				return fmt.Errorf("zipping source: %w", err)
+			}
+			fmt.Printf("Uploading archive (%.1f KB)...\n", float64(len(zipData))/1024)
+
+			dep, err = client.DeploySource(deployApp, zipData, buildArgs)
+			if err != nil {
+				return err
+			}
 		}
 
-		// No tag — zip and upload source code.
-		cwd, err := os.Getwd()
-		if err != nil {
-			return err
-		}
-		fmt.Println("Packaging source code...")
-		zipData, err := archive.ZipDir(cwd)
-		if err != nil {
-			return fmt.Errorf("zipping source: %w", err)
-		}
-		fmt.Printf("Uploading archive (%.1f KB)...\n", float64(len(zipData))/1024)
-
-		dep, err := client.DeploySource(deployApp, zipData, buildArgs)
-		if err != nil {
-			return err
-		}
 		printDeployment(dep)
+
+		if deployWait {
+			return waitForDeployment(client, deployApp, dep.ID)
+		}
 		return nil
 	},
 }
@@ -92,6 +99,46 @@ func printDeployment(dep *api.Deployment) {
 	}
 	fmt.Printf("  Port:    %d\n", dep.Port)
 	fmt.Printf("  Replicas: %d\n", dep.Replicas)
+}
+
+func waitForDeployment(client *api.Client, appName, deploymentID string) error {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	timeout := time.After(10 * time.Minute)
+
+	start := time.Now()
+	lastStatus := ""
+
+	for {
+		select {
+		case <-timeout:
+			fmt.Println()
+			return fmt.Errorf("timed out waiting for deployment %s", deploymentID)
+		case <-ticker.C:
+			dep, err := client.GetDeployment(appName, deploymentID)
+			if err != nil {
+				fmt.Println()
+				return err
+			}
+			elapsed := time.Since(start).Truncate(time.Second)
+			switch dep.Status {
+			case "running":
+				fmt.Printf("\rDeployment is running (%s)          \n", elapsed)
+				return nil
+			case "failed", "build_failed", "deploy_failed":
+				fmt.Printf("\rDeployment failed: %s (%s)          \n", dep.Status, elapsed)
+				return fmt.Errorf("deployment %s failed with status: %s", deploymentID, dep.Status)
+			default:
+				if dep.Status != lastStatus {
+					if lastStatus != "" {
+						fmt.Println()
+					}
+					lastStatus = dep.Status
+				}
+				fmt.Printf("\r  %s... %s", dep.Status, elapsed)
+			}
+		}
+	}
 }
 
 func parseBuildArgs(raw []string) (map[string]string, error) {
@@ -115,6 +162,7 @@ func init() {
 	deployCmd.Flags().IntVarP(&deployPort, "port", "p", 8080, "Container port the app listens on")
 	deployCmd.Flags().IntVar(&deployReplicas, "replicas", 1, "Number of replicas")
 	deployCmd.Flags().StringArrayVar(&deployBuildArgs, "build-arg", nil, "Build argument in KEY=VALUE format (can be repeated)")
+	deployCmd.Flags().BoolVarP(&deployWait, "wait", "w", false, "Wait for deployment to complete")
 	deployCmd.MarkFlagRequired("app")
 	rootCmd.AddCommand(deployCmd)
 }
