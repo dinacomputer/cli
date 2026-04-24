@@ -6,6 +6,7 @@ func SkillMD() string {
 	return `---
 name: dina-cli
 description: Deploy applications, manage apps, view logs, set env vars, and configure hostnames on the Dina platform. Use when the user wants to deploy code, check app status, view logs, manage environment variables, configure custom domains, or perform any Dina platform operation.
+allowed-tools: Bash(dina *), Bash(dina)
 ---
 
 # Dina CLI
