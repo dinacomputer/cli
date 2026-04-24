@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
@@ -32,13 +33,20 @@ var appsHostnamesAddCmd = &cobra.Command{
 	},
 }
 
-var appsHostnamesRemoveApp string
+var (
+	appsHostnamesRemoveApp   string
+	appsHostnamesRemoveForce bool
+)
 
 var appsHostnamesRemoveCmd = &cobra.Command{
 	Use:   "remove <hostname>",
 	Short: "Remove a custom hostname",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
+		prompt := fmt.Sprintf("Remove hostname %s from %s?", args[0], appsHostnamesRemoveApp)
+		if err := confirmYesNo(prompt, appsHostnamesRemoveForce); err != nil {
+			return err
+		}
 		client, err := api.NewClient()
 		if err != nil {
 			return err
@@ -46,7 +54,7 @@ var appsHostnamesRemoveCmd = &cobra.Command{
 		if err := client.RemoveHostname(appsHostnamesRemoveApp, args[0]); err != nil {
 			return err
 		}
-		fmt.Printf("Hostname %s removed.\n", args[0])
+		fmt.Fprintf(os.Stderr, "Hostname %s removed.\n", args[0])
 		return nil
 	},
 }
@@ -57,6 +65,7 @@ func init() {
 	appsHostnamesCmd.AddCommand(appsHostnamesAddCmd)
 
 	appsHostnamesRemoveCmd.Flags().StringVarP(&appsHostnamesRemoveApp, "app", "a", "", "Application name")
+	appsHostnamesRemoveCmd.Flags().BoolVarP(&appsHostnamesRemoveForce, "force", "f", false, "Skip confirmation prompt")
 	appsHostnamesRemoveCmd.MarkFlagRequired("app")
 	appsHostnamesCmd.AddCommand(appsHostnamesRemoveCmd)
 

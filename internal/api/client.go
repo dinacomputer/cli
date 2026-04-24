@@ -21,6 +21,10 @@ const (
 	envToken              = "DINA_API_TOKEN"
 )
 
+// UserAgent is the value sent in the User-Agent header on outbound requests.
+// The CLI sets this at startup with the build version and runtime info.
+var UserAgent = "dina/unknown"
+
 // Client is an HTTP client for the Dina API.
 type Client struct {
 	BaseURL        string
@@ -127,6 +131,7 @@ func (c *Client) newRequest(method, path string, body any) (*http.Request, error
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+tok)
+	req.Header.Set("User-Agent", UserAgent)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -251,6 +256,7 @@ func (c *Client) DeploySource(appName string, zipData []byte, buildArgs map[stri
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+tok)
+	req.Header.Set("User-Agent", UserAgent)
 	req.Header.Set("Content-Type", w.FormDataContentType())
 
 	var dep Deployment

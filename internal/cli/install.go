@@ -13,6 +13,9 @@ var installCmd = &cobra.Command{
 	Long:  "Install resources for the Dina CLI. Use --skills to install agent skill files that teach AI tools (Claude Code, Cursor, VS Code Copilot, Gemini, OpenAI Codex) how to use the Dina CLI.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if installSkills {
+			if err := requireInteractive("skill installation", "(interactive mode only)"); err != nil {
+				return err
+			}
 			return skills.Install()
 		}
 		return cmd.Help()

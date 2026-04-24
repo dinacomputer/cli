@@ -30,6 +30,7 @@ func (c *Client) newSignalsRequest(method, path string, body any) (*http.Request
 		}
 		req.Header.Set("Authorization", "Bearer "+tok)
 	}
+	req.Header.Set("User-Agent", UserAgent)
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

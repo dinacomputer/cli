@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
 )
 
@@ -33,6 +34,7 @@ var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update dina to the latest version",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		fmt.Fprintln(os.Stderr, "Checking for updates...")
 		latest, err := fetchLatestRelease()
 		if err != nil {
 			return fmt.Errorf("failed to check for updates: %w", err)
@@ -42,11 +44,11 @@ var updateCmd = &cobra.Command{
 		currentVersion := strings.TrimPrefix(Version, "v")
 
 		if latestVersion == currentVersion {
-			fmt.Printf("Already up to date (v%s).\n", currentVersion)
+			fmt.Fprintf(os.Stderr, "Already up to date (v%s).\n", currentVersion)
 			return nil
 		}
 
-		fmt.Printf("New version available: v%s (current: v%s)\n", latestVersion, currentVersion)
+		fmt.Fprintf(os.Stderr, "New version available: v%s (current: v%s)\n", latestVersion, currentVersion)
 
 		assetName := fmt.Sprintf("dina_%s_%s_%s.tar.gz", latestVersion, runtime.GOOS, runtime.GOARCH)
 		if runtime.GOOS == "windows" {
@@ -64,7 +66,7 @@ var updateCmd = &cobra.Command{
 			return fmt.Errorf("no release asset found for %s/%s", runtime.GOOS, runtime.GOARCH)
 		}
 
-		fmt.Printf("Downloading %s...\n", assetName)
+		fmt.Fprintf(os.Stderr, "Downloading %s...\n", assetName)
 
 		tmpDir, err := os.MkdirTemp("", "dina-update-*")
 		if err != nil {
@@ -108,7 +110,7 @@ var updateCmd = &cobra.Command{
 			return fmt.Errorf("failed to replace binary: %w", err)
 		}
 
-		fmt.Printf("Updated to v%s successfully!\n", latestVersion)
+		fmt.Fprintf(os.Stderr, "Updated to v%s successfully!\n", latestVersion)
 		return nil
 	},
 }
@@ -117,6 +119,7 @@ var checkUpdateCmd = &cobra.Command{
 	Use:   "check-update",
 	Short: "Check if a newer version is available",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		fmt.Fprintln(os.Stderr, "Checking for updates...")
 		latest, err := fetchLatestRelease()
 		if err != nil {
 			return fmt.Errorf("failed to check for updates: %w", err)
@@ -143,7 +146,12 @@ func init() {
 
 func fetchLatestRelease() (*githubRelease, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(githubAPIBase + "/releases/latest")
+	req, err := http.NewRequest("GET", githubAPIBase+"/releases/latest", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("User-Agent", api.UserAgent)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -162,7 +170,12 @@ func fetchLatestRelease() (*githubRelease, error) {
 
 func downloadFile(url, dest string) error {
 	client := &http.Client{Timeout: 120 * time.Second}
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("User-Agent", api.UserAgent)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}

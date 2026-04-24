@@ -8,6 +8,7 @@ import (
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/dinacomputer/cli/internal/archive"
+	"github.com/dinacomputer/cli/internal/term"
 	"github.com/spf13/cobra"
 )
 
@@ -68,12 +69,12 @@ var deployCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			fmt.Println("Packaging source code...")
+			fmt.Fprintln(os.Stderr, "Packaging source code...")
 			zipData, err := archive.ZipDir(cwd)
 			if err != nil {
 				return fmt.Errorf("zipping source: %w", err)
 			}
-			fmt.Printf("Uploading archive (%.1f KB)...\n", float64(len(zipData))/1024)
+			fmt.Fprintf(os.Stderr, "Uploading archive (%.1f KB)...\n", float64(len(zipData))/1024)
 
 			dep, err = client.DeploySource(deployApp, zipData, buildArgs)
 			if err != nil {
@@ -108,34 +109,52 @@ func waitForDeployment(client *api.Client, appName, deploymentID string) error {
 
 	start := time.Now()
 	lastStatus := ""
+	animated := term.IsStderrTTY()
 
 	for {
 		select {
 		case <-timeout:
-			fmt.Println()
+			if animated {
+				fmt.Fprintln(os.Stderr)
+			}
 			return fmt.Errorf("timed out waiting for deployment %s", deploymentID)
 		case <-ticker.C:
 			dep, err := client.GetDeployment(appName, deploymentID)
 			if err != nil {
-				fmt.Println()
+				if animated {
+					fmt.Fprintln(os.Stderr)
+				}
 				return err
 			}
 			elapsed := time.Since(start).Truncate(time.Second)
 			switch dep.Status {
 			case "running":
-				fmt.Printf("\rDeployment is running (%s)          \n", elapsed)
+				if animated {
+					fmt.Fprintf(os.Stderr, "\rDeployment is running (%s)          \n", elapsed)
+				} else {
+					fmt.Fprintf(os.Stderr, "Deployment is running (%s)\n", elapsed)
+				}
 				return nil
 			case "failed", "build_failed", "deploy_failed":
-				fmt.Printf("\rDeployment failed: %s (%s)          \n", dep.Status, elapsed)
+				if animated {
+					fmt.Fprintf(os.Stderr, "\rDeployment failed: %s (%s)          \n", dep.Status, elapsed)
+				} else {
+					fmt.Fprintf(os.Stderr, "Deployment failed: %s (%s)\n", dep.Status, elapsed)
+				}
 				return fmt.Errorf("deployment %s failed with status: %s", deploymentID, dep.Status)
 			default:
 				if dep.Status != lastStatus {
-					if lastStatus != "" {
-						fmt.Println()
+					if animated && lastStatus != "" {
+						fmt.Fprintln(os.Stderr)
+					}
+					if !animated {
+						fmt.Fprintf(os.Stderr, "  %s... %s\n", dep.Status, elapsed)
 					}
 					lastStatus = dep.Status
 				}
-				fmt.Printf("\r  %s... %s", dep.Status, elapsed)
+				if animated {
+					fmt.Fprintf(os.Stderr, "\r  %s... %s", dep.Status, elapsed)
+				}
 			}
 		}
 	}

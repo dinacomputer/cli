@@ -2,7 +2,9 @@ package cli
 
 import (
 	"fmt"
+	"runtime"
 
+	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
 )
 
@@ -18,5 +20,6 @@ var versionCmd = &cobra.Command{
 }
 
 func init() {
+	api.UserAgent = fmt.Sprintf("dina/%s (%s/%s)", Version, runtime.GOOS, runtime.GOARCH)
 	rootCmd.AddCommand(versionCmd)
 }

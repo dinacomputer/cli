@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ var appsDeploymentsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		fmt.Fprintf(os.Stderr, "Fetching deployments for %s...\n", appsDeploymentsApp)
 		deps, err := client.ListDeployments(appsDeploymentsApp)
 		if err != nil {
 			return err
@@ -48,6 +50,7 @@ var deploymentLogsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		fmt.Fprintf(os.Stderr, "Fetching build logs for %s...\n", deploymentLogsID)
 		logs, err := client.GetDeploymentLogs(deploymentLogsApp, deploymentLogsID)
 		if err != nil {
 			return err

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"time"
 )
 
@@ -47,15 +48,15 @@ func DeviceLogin(cfg *OIDCConfig, clientID string) (*Credentials, error) {
 		return nil, fmt.Errorf("decoding device authorization response: %w", err)
 	}
 
-	fmt.Printf("\nTo authenticate, visit:\n\n  %s\n\n", dar.VerificationURI)
-	fmt.Printf("and enter code: %s\n\n", dar.UserCode)
+	fmt.Fprintf(os.Stderr, "\nTo authenticate, visit:\n\n  %s\n\n", dar.VerificationURI)
+	fmt.Fprintf(os.Stderr, "and enter code: %s\n\n", dar.UserCode)
 
 	if dar.VerificationURIComplete != "" {
-		fmt.Printf("Or open this URL directly:\n  %s\n\n", dar.VerificationURIComplete)
+		fmt.Fprintf(os.Stderr, "Or open this URL directly:\n  %s\n\n", dar.VerificationURIComplete)
 		openBrowser(dar.VerificationURIComplete)
 	}
 
-	fmt.Println("Waiting for authorization...")
+	fmt.Fprintln(os.Stderr, "Waiting for authorization...")
 
 	interval := dar.Interval
 	if interval <= 0 {

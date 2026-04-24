@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
@@ -20,6 +21,7 @@ var appsLogsCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		fmt.Fprintf(os.Stderr, "Fetching logs for %s...\n", appsLogsApp)
 		logs, err := client.GetAppLogs(appsLogsApp, appsLogsLines)
 		if err != nil {
 			return err

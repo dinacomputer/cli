@@ -9,6 +9,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/dinacomputer/cli/internal/api"
+	"github.com/dinacomputer/cli/internal/term"
 	"github.com/spf13/cobra"
 )
 
@@ -37,6 +38,9 @@ var bugCmd = &cobra.Command{
 		severity := strings.ToLower(bugSeverity)
 
 		if title == "" || desc == "" {
+			if err := requireInteractive("bug", "--title", "--description"); err != nil {
+				return err
+			}
 			form := huh.NewForm(
 				huh.NewGroup(
 					huh.NewInput().
@@ -101,6 +105,9 @@ var featureCmd = &cobra.Command{
 		desc := featureDescription
 
 		if title == "" || desc == "" {
+			if err := requireInteractive("feature request", "--title", "--description"); err != nil {
+				return err
+			}
 			form := huh.NewForm(
 				huh.NewGroup(
 					huh.NewInput().
@@ -154,6 +161,9 @@ var feedbackCmd = &cobra.Command{
 		}
 
 		if message == "" {
+			if err := requireInteractive("feedback", "--message"); err != nil {
+				return err
+			}
 			form := huh.NewForm(
 				huh.NewGroup(
 					huh.NewText().
@@ -226,6 +236,19 @@ func requireNonEmpty(field string) func(string) error {
 		}
 		return nil
 	}
+}
+
+// requireInteractive ensures stdin is a TTY and --no-input is not set before
+// prompting. Returns a clear error listing the flags the user should pass
+// instead if not.
+func requireInteractive(what string, flags ...string) error {
+	if noInput {
+		return fmt.Errorf("--no-input was set but %s input is missing; pass %s", what, strings.Join(flags, " and "))
+	}
+	if !term.IsStdinTTY() {
+		return fmt.Errorf("stdin is not a terminal; pass %s to submit %s non-interactively", strings.Join(flags, " and "), what)
+	}
+	return nil
 }
 
 func init() {

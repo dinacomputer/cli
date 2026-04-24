@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
@@ -17,6 +18,7 @@ var appsInfoCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
+		fmt.Fprintf(os.Stderr, "Fetching %s...\n", appsInfoApp)
 		out, err := client.GetApp(appsInfoApp)
 		if err != nil {
 			return err

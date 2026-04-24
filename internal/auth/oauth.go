@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -92,8 +93,8 @@ func PKCELogin(clientID string) (*Credentials, error) {
 		url.QueryEscape("openid profile offline_access"),
 	)
 
-	fmt.Println("Opening browser to authenticate...")
-	fmt.Printf("If the browser doesn't open, visit:\n  %s\n\n", authURL)
+	fmt.Fprintln(os.Stderr, "Opening browser to authenticate...")
+	fmt.Fprintf(os.Stderr, "If the browser doesn't open, visit:\n  %s\n\n", authURL)
 	openBrowser(authURL)
 
 	codeCh := make(chan string, 1)
@@ -137,7 +138,7 @@ func PKCELogin(clientID string) (*Credentials, error) {
 	}
 	server.Shutdown(context.Background())
 
-	fmt.Println("Exchanging authorization code for tokens...")
+	fmt.Fprintln(os.Stderr, "Exchanging authorization code for tokens...")
 	tok, err := exchangeCode(clientID, code, redirectURI, pkce.Verifier)
 	if err != nil {
 		return nil, err
