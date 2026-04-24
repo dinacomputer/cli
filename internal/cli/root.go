@@ -33,10 +33,11 @@ func runSkillCheck(cmd *cobra.Command, _ []string) {
 	if res == nil || len(res.Outdated) == 0 {
 		return
 	}
-	fmt.Fprintln(os.Stderr, "dina: installed skills are outdated — run `dina install --skills` to update:")
+	fmt.Fprintln(os.Stderr, "! Alert: installed skills are outdated. Run `dina install --skills` to update.")
 	for _, s := range res.Outdated {
-		fmt.Fprintf(os.Stderr, "  - %s (%s): %s\n", s.Agent, s.Scope, s.Path)
+		fmt.Fprintf(os.Stderr, "!   - %s (%s): %s\n", s.Agent, s.Scope, s.Path)
 	}
+	fmt.Fprintln(os.Stderr)
 }
 
 // NoInput reports whether the --no-input flag was passed.
