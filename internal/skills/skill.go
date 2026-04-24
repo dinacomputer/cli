@@ -24,13 +24,16 @@ Dina is a platform-as-a-service (PaaS) for deploying and managing containerized 
 
 ## Session start
 
-At the beginning of every session, run:
+At the beginning of every session, run these two commands in order:
 
 ` + "```bash" + `
+dina doctor --fix
 dina help
 ` + "```" + `
 
-This prints the current list of available commands and their descriptions. Always run this before issuing any other Dina command so you know exactly which commands and flags are available in the installed version. For sub-command details, run ` + "`dina [command] --help`" + `.
+**` + "`dina doctor --fix`" + `** verifies authentication is valid, brings any outdated installed skill files up to date with the canonical content in this CLI version, and reports whether a newer CLI version is available. Fixable issues (skills out of date) are repaired automatically. Issues that need user action (not logged in, CLI update available) are reported for the user to handle.
+
+**` + "`dina help`" + `** prints the current list of available commands and their descriptions. Always run this so you know exactly which commands and flags the installed version supports — do not assume commands from this doc are present; verify via help. For sub-command details, run ` + "`dina [command] --help`" + `.
 
 ## Quick start
 
@@ -106,8 +109,8 @@ dina apps info -a my-app
 # rename an app
 dina apps update -a my-app --name new-name
 
-# delete an app
-dina apps delete -a my-app
+# delete an app (prompts for the app name to confirm — pass --force to skip)
+dina apps delete -a my-app --force
 ` + "```" + `
 
 ### Logs
@@ -139,7 +142,8 @@ dina apps env set -a my-app KEY1=val1 KEY2=val2
 
 ` + "```bash" + `
 dina apps hostnames add -a my-app example.com
-dina apps hostnames remove -a my-app example.com
+# remove prompts y/N — pass --force to skip (required in scripts)
+dina apps hostnames remove -a my-app example.com --force
 ` + "```" + `
 
 ### Users (admin)
@@ -157,6 +161,9 @@ Submit bug reports, feature requests, or general feedback to the Sokkel Signals 
 # bug report (interactive form if flags are omitted)
 dina feedback bug --title "..." --description "..." --severity high --context-file ./build.log
 
+# read bug context from stdin (useful in pipelines)
+some-command 2>&1 | dina feedback bug --title "..." --description "..." --context-file -
+
 # feature request
 dina feedback feature --title "..." --description "..."
 
@@ -164,7 +171,7 @@ dina feedback feature --title "..." --description "..."
 dina feedback --message "..." --rating 5
 ` + "```" + `
 
-Bug report flags: ` + "`--title`" + `, ` + "`--description`" + `, ` + "`--severity low|medium|high`" + `, ` + "`--context`" + ` (inline), ` + "`--context-file`" + ` (path). OS and CLI version are attached automatically.
+Bug report flags: ` + "`--title`" + `, ` + "`--description`" + `, ` + "`--severity low|medium|high`" + `, ` + "`--context`" + ` (inline), ` + "`--context-file`" + ` (path, or ` + "`-`" + ` for stdin). OS and CLI version are attached automatically.
 
 For non-interactive use, supply all required flags and pass ` + "`--no-input`" + `. The server returns a submission ID on stdout — capture it if the user wants a reference.
 
@@ -172,9 +179,11 @@ For non-interactive use, supply all required flags and pass ` + "`--no-input`" +
 
 ` + "```bash" + `
 dina version
-dina install --skills
-dina doctor               # run diagnostic checks
-dina doctor --fix         # auto-repair any fixable issues
+dina update                 # install the latest CLI version
+dina update --check         # check for updates without installing
+dina install --skills       # install this agent skill for supported AI tools
+dina doctor                 # run diagnostic checks
+dina doctor --fix           # auto-repair any fixable issues
 ` + "```" + `
 
 ## Common flag patterns
@@ -190,6 +199,20 @@ dina apps hostnames add -a my-app example.com
 dina apps deployments -a my-app
 dina apps delete -a my-app
 ` + "```" + `
+
+## Global flags
+
+These flags work on every command:
+
+- ` + "`-o`" + ` / ` + "`--output`" + ` — output format, ` + "`text`" + ` (default) or ` + "`json`" + `. Use ` + "`-o json`" + ` on ` + "`apps list`" + `, ` + "`apps info`" + `, ` + "`apps deployments`" + `, ` + "`users list`" + `, and ` + "`auth status`" + ` when you need to parse the output. JSON goes to stdout; progress messages stay on stderr so the JSON body is pipeable straight into ` + "`jq`" + `.
+- ` + "`-q`" + ` / ` + "`--quiet`" + ` — suppress informational stderr lines (` + "`Fetching...`" + `, ` + "`Packaging...`" + `, post-action confirmations).
+- ` + "`--no-input`" + ` — disable interactive prompts; required fields must be supplied as flags. Use this (together with ` + "`--force`" + ` where relevant) when running in scripts.
+- ` + "`--no-color`" + ` — disable ANSI color. Also honors ` + "`NO_COLOR`" + ` and ` + "`TERM=dumb`" + `.
+- ` + "`--debug`" + ` — log each outgoing HTTP request's method/URL and response status. Also honors ` + "`DEBUG=1`" + `.
+
+## Error output
+
+Errors go to stderr as a single line prefixed ` + "`error:`" + `. The CLI rewrites API errors into actionable text — for example a 401 reads ` + "`not authenticated or token expired — run: dina auth login`" + `, and a 404 on an app path reads ` + "`no app named 'X' — list apps with: dina apps list`" + `. Transport errors include the host that failed and mention ` + "`DINA_API_URL`" + ` for overriding it.
 
 ## Reporting bugs and soliciting feedback
 

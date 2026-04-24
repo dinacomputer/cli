@@ -21,7 +21,7 @@ import (
 func DefaultChecks(cliVersion string) []Check {
 	return []Check{
 		{Name: "authentication", Diagnose: diagnoseAuth},
-		{Name: "installed skills", Diagnose: diagnoseSkills},
+		{Name: "installed skills", Diagnose: func() Result { return diagnoseSkills(cliVersion) }},
 		{Name: "CLI version", Diagnose: func() Result { return diagnoseUpdate(cliVersion) }},
 	}
 }
@@ -47,7 +47,11 @@ func diagnoseAuth() Result {
 
 // --- installed skills ---
 
-func diagnoseSkills() Result {
+func diagnoseSkills(cliVersion string) Result {
+	// Pick up any pre-tracking or post-upgrade user-scope installs before
+	// reading the config we're about to check.
+	skills.RegisterDiscoveredSkills(cliVersion)
+
 	cfg, err := config.Load()
 	if err != nil {
 		return Result{Status: StatusWarn, Summary: "could not read config", Details: []string{err.Error()}}

@@ -6,7 +6,6 @@ import (
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/dinacomputer/cli/internal/color"
-	"github.com/dinacomputer/cli/internal/skills"
 	"github.com/spf13/cobra"
 )
 
@@ -36,14 +35,13 @@ or file issues at https://github.com/dinacomputer/cli/issues.`,
 	PersistentPreRun: persistentPreRun,
 }
 
-func persistentPreRun(cmd *cobra.Command, args []string) {
+func persistentPreRun(_ *cobra.Command, _ []string) {
 	if noColor {
 		color.Disable()
 	}
 	if Debug() {
 		api.Debug = true
 	}
-	runSkillCheck(cmd, args)
 }
 
 // Command group IDs. Cobra renders help using the order AddGroup is called,
@@ -89,28 +87,6 @@ func ValidateOutput() error {
 		return fmt.Errorf("invalid --output %q: expected 'text' or 'json'", output)
 	}
 	return nil
-}
-
-// runSkillCheck surfaces a warning on stderr when installed skills are
-// outdated. Skipped for commands where the warning would be noise (install,
-// version) and for the skill-update command itself once we add one.
-func runSkillCheck(cmd *cobra.Command, _ []string) {
-	switch cmd.Name() {
-	case "install", "version", "help", "doctor":
-		return
-	}
-	if Quiet() {
-		return
-	}
-	res := skills.CheckIfDue(Version)
-	if res == nil || len(res.Outdated) == 0 {
-		return
-	}
-	fmt.Fprintln(os.Stderr, "! Alert: installed skills are outdated. Run `dina doctor --fix` to update.")
-	for _, s := range res.Outdated {
-		fmt.Fprintf(os.Stderr, "!   - %s (%s): %s\n", s.Agent, s.Scope, s.Path)
-	}
-	fmt.Fprintln(os.Stderr)
 }
 
 // NoInput reports whether the --no-input flag was passed.
