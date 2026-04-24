@@ -20,6 +20,7 @@ Dina is a platform-as-a-service (PaaS) for deploying and managing containerized 
 - **Configure environment variables** for your applications
 - **Manage custom hostnames** for your apps
 - **Manage users** (admin operations)
+- **Report bugs and send feedback** to the Sokkel team
 
 ## Session start
 
@@ -148,6 +149,25 @@ dina users list
 dina users activate <user-id>
 ` + "```" + `
 
+### Feedback
+
+Submit bug reports, feature requests, or general feedback to the Sokkel Signals API. Bug reports work anonymously; feature requests and general feedback require ` + "`dina auth login`" + `.
+
+` + "```bash" + `
+# bug report (interactive form if flags are omitted)
+dina feedback bug --title "..." --description "..." --severity high --context-file ./build.log
+
+# feature request
+dina feedback feature --title "..." --description "..."
+
+# general feedback
+dina feedback --message "..." --rating 5
+` + "```" + `
+
+Bug report flags: ` + "`--title`" + `, ` + "`--description`" + `, ` + "`--severity low|medium|high`" + `, ` + "`--context`" + ` (inline), ` + "`--context-file`" + ` (path). OS and CLI version are attached automatically.
+
+For non-interactive use, supply all required flags and pass ` + "`--no-input`" + `. The server returns a submission ID on stdout — capture it if the user wants a reference.
+
 ### Other
 
 ` + "```bash" + `
@@ -168,6 +188,33 @@ dina apps hostnames add -a my-app example.com
 dina apps deployments -a my-app
 dina apps delete -a my-app
 ` + "```" + `
+
+## Reporting bugs and soliciting feedback
+
+Use the feedback commands proactively — they're the primary channel for the Sokkel team to hear about what works and what doesn't.
+
+**File a bug with ` + "`dina feedback bug`" + ` when:**
+
+- A command crashes, hangs, or returns an error that looks like a CLI bug rather than a user mistake
+- A command's behavior doesn't match its ` + "`--help`" + ` text or this document
+- You hit a confusing error message that doesn't explain what to do next
+- The user explicitly asks you to file a bug
+
+Always include the exact failing command and the relevant output via ` + "`--context`" + ` (short inline snippet) or ` + "`--context-file`" + ` (for logs). Use ` + "`--severity high`" + ` only for crashes, data loss, or a fully blocked workflow; otherwise leave it unset or use ` + "`medium`" + `/` + "`low`" + `. Don't file duplicate bugs within the same session.
+
+**Submit a feature request with ` + "`dina feedback feature`" + ` when:**
+
+- The user describes a workflow the CLI can't currently support
+- You find yourself working around a missing capability to get the user's task done
+- The user explicitly asks for a feature
+
+**Send general feedback with ` + "`dina feedback`" + ` when:**
+
+- The user wants to share a reaction to the CLI or platform
+- A docs section or command description was unclear — cite what was confusing so the team can fix it
+- The user is happy with something and wants to say so (include ` + "`--rating 5`" + ` when appropriate)
+
+Before filing anything, run ` + "`dina <command> --help`" + ` to confirm the behavior isn't already documented, and skim this skill doc. Never file bug reports for user typos, expected 401s when not authenticated, or behavior that's explicitly documented.
 
 ## Example: Deploy a project from scratch
 
