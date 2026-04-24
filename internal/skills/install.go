@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/charmbracelet/huh"
+	"github.com/dinacomputer/cli/internal/config"
 )
 
 const skillDirName = "dina-cli"
@@ -95,6 +96,29 @@ func Install() error {
 		return fmt.Errorf("writing SKILL.md: %w", err)
 	}
 
+	recordInstall(agent.Slug, scope, skillFile)
+
 	fmt.Printf("\nInstalled Dina CLI skill for %s at:\n  %s\n", agent.Name, skillFile)
 	return nil
+}
+
+// recordInstall updates the config to note a skill installation. Failures are
+// silently ignored — the install itself already succeeded.
+func recordInstall(agentSlug, scope, path string) {
+	cfg, err := config.Load()
+	if err != nil {
+		return
+	}
+	filtered := cfg.Skills[:0]
+	for _, s := range cfg.Skills {
+		if s.Path != path {
+			filtered = append(filtered, s)
+		}
+	}
+	cfg.Skills = append(filtered, config.InstalledSkill{
+		Agent: agentSlug,
+		Scope: scope,
+		Path:  path,
+	})
+	_ = config.Save(cfg)
 }
