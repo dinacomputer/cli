@@ -26,14 +26,14 @@ func init() {
 // version) and for the skill-update command itself once we add one.
 func runSkillCheck(cmd *cobra.Command, _ []string) {
 	switch cmd.Name() {
-	case "install", "version", "help":
+	case "install", "version", "help", "doctor":
 		return
 	}
 	res := skills.CheckIfDue(Version)
 	if res == nil || len(res.Outdated) == 0 {
 		return
 	}
-	fmt.Fprintln(os.Stderr, "! Alert: installed skills are outdated. Run `dina install --skills` to update.")
+	fmt.Fprintln(os.Stderr, "! Alert: installed skills are outdated. Run `dina doctor --fix` to update.")
 	for _, s := range res.Outdated {
 		fmt.Fprintf(os.Stderr, "!   - %s (%s): %s\n", s.Agent, s.Scope, s.Path)
 	}
@@ -47,7 +47,9 @@ func NoInput() bool {
 
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if msg := err.Error(); msg != "" {
+			fmt.Fprintln(os.Stderr, msg)
+		}
 		os.Exit(1)
 	}
 }

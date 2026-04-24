@@ -173,6 +173,8 @@ For non-interactive use, supply all required flags and pass ` + "`--no-input`" +
 ` + "```bash" + `
 dina version
 dina install --skills
+dina doctor               # run diagnostic checks
+dina doctor --fix         # auto-repair any fixable issues
 ` + "```" + `
 
 ## Common flag patterns
