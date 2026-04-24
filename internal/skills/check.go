@@ -11,24 +11,30 @@ import (
 	"github.com/dinacomputer/cli/internal/config"
 )
 
-// checkInterval is how often we re-check for outdated skills.
-const checkInterval = 24 * time.Hour
+// recheckInterval is how often we re-hash files to see if an outdated skill
+// was fixed manually. Fresh installs via `dina install --skills` update the
+// config directly and don't rely on this interval.
+const recheckInterval = 24 * time.Hour
 
 // CheckResult summarizes an update check.
 type CheckResult struct {
 	Outdated []config.InstalledSkill
 }
 
-// CheckIfDue runs a skill freshness check when warranted and returns any
-// outdated installations. The caller decides how to surface the result.
+// CheckIfDue returns any skills recorded as outdated in the config. It uses
+// the cached per-skill state on every call (cheap — no file I/O), and only
+// re-hashes when one of the following is true:
 //
-// The check is skipped when all of these are true: the config's cli_version
-// matches the current version, there are no tracked skill installations, and
-// the last check was less than checkInterval ago. On a version bump, user-scope
-// installation paths are scanned so that pre-tracking installs are picked up.
+//   - The CLI version differs from the value in config (binary was upgraded).
+//   - At least one skill is cached as outdated and the last re-check was more
+//     than recheckInterval ago (probing to see if the user fixed it).
 //
-// Any I/O error is swallowed; the check is best-effort and must never block
-// the user's actual command.
+// Per spec: the check is skipped entirely when no skills are tracked and the
+// CLI version in config matches the running binary — new users who never
+// installed a skill are never bothered.
+//
+// All I/O errors are swallowed; the check is best-effort and must never block
+// the user's real command.
 func CheckIfDue(cliVersion string) *CheckResult {
 	cfg, err := config.Load()
 	if err != nil {
@@ -41,40 +47,60 @@ func CheckIfDue(cliVersion string) *CheckResult {
 	if !versionStale && !hasInstalls {
 		return nil
 	}
-	if !cfg.LastSkillCheck.IsZero() && time.Since(cfg.LastSkillCheck) < checkInterval {
+
+	outdatedCached := anyOutdated(cfg.Skills)
+	shouldRecheck := versionStale ||
+		(outdatedCached && time.Since(cfg.LastSkillCheck) >= recheckInterval)
+
+	if shouldRecheck {
+		if versionStale {
+			cfg.Skills = mergeSkills(cfg.Skills, discoverUserSkills())
+		}
+		cfg.Skills = refreshSkillState(cfg.Skills)
+		cfg.CLIVersion = cliVersion
+		cfg.LastSkillCheck = time.Now()
+		_ = config.Save(cfg)
+	}
+
+	var outdated []config.InstalledSkill
+	for _, s := range cfg.Skills {
+		if s.Outdated {
+			outdated = append(outdated, s)
+		}
+	}
+	if len(outdated) == 0 {
 		return nil
 	}
+	return &CheckResult{Outdated: outdated}
+}
 
-	if versionStale {
-		cfg.Skills = mergeSkills(cfg.Skills, discoverUserSkills())
-	}
-
+// refreshSkillState hashes each skill file and updates its Outdated flag.
+// Missing files are dropped. Unreadable files retain their previous state.
+func refreshSkillState(skills []config.InstalledSkill) []config.InstalledSkill {
 	current := currentHash()
-	var outdated, present []config.InstalledSkill
-	for _, s := range cfg.Skills {
+	out := skills[:0]
+	for _, s := range skills {
 		h, err := fileHash(s.Path)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			present = append(present, s)
+			out = append(out, s)
 			continue
 		}
-		present = append(present, s)
-		if h != current {
-			outdated = append(outdated, s)
+		s.Outdated = h != current
+		out = append(out, s)
+	}
+	return out
+}
+
+func anyOutdated(skills []config.InstalledSkill) bool {
+	for _, s := range skills {
+		if s.Outdated {
+			return true
 		}
 	}
-
-	cfg.Skills = present
-	cfg.CLIVersion = cliVersion
-	cfg.LastSkillCheck = time.Now()
-	_ = config.Save(cfg)
-
-	if len(outdated) == 0 {
-		return nil
-	}
-	return &CheckResult{Outdated: outdated}
+	return false
 }
 
 func currentHash() string {

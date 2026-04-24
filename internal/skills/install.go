@@ -102,8 +102,10 @@ func Install() error {
 	return nil
 }
 
-// recordInstall updates the config to note a skill installation. Failures are
-// silently ignored — the install itself already succeeded.
+// recordInstall updates the config to note a skill installation. The new
+// entry is marked not-outdated because install has just written the canonical
+// content verbatim. Failures are silently ignored — the install itself has
+// already succeeded.
 func recordInstall(agentSlug, scope, path string) {
 	cfg, err := config.Load()
 	if err != nil {
@@ -116,9 +118,10 @@ func recordInstall(agentSlug, scope, path string) {
 		}
 	}
 	cfg.Skills = append(filtered, config.InstalledSkill{
-		Agent: agentSlug,
-		Scope: scope,
-		Path:  path,
+		Agent:    agentSlug,
+		Scope:    scope,
+		Path:     path,
+		Outdated: false,
 	})
 	_ = config.Save(cfg)
 }

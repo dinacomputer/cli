@@ -28,11 +28,13 @@ type Config struct {
 	Skills []InstalledSkill `json:"skills,omitempty"`
 }
 
-// InstalledSkill records where a SKILL.md was written.
+// InstalledSkill records where a SKILL.md was written and whether the last
+// check found it out of sync with the canonical content.
 type InstalledSkill struct {
-	Agent string `json:"agent"` // agent slug (e.g. "claude-code")
-	Scope string `json:"scope"` // "project" or "user"
-	Path  string `json:"path"`  // absolute path to SKILL.md
+	Agent    string `json:"agent"` // agent slug (e.g. "claude-code")
+	Scope    string `json:"scope"` // "project" or "user"
+	Path     string `json:"path"`  // absolute path to SKILL.md
+	Outdated bool   `json:"outdated,omitempty"`
 }
 
 func configDir() (string, error) {
