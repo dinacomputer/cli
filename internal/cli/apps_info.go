@@ -13,6 +13,9 @@ var appsInfoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Show application details",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := ValidateOutput(); err != nil {
+			return err
+		}
 		client, err := api.NewClient()
 		if err != nil {
 			return err
@@ -21,6 +24,9 @@ var appsInfoCmd = &cobra.Command{
 		out, err := client.GetApp(appsInfoApp)
 		if err != nil {
 			return err
+		}
+		if JSONOutput() {
+			return writeJSON(out)
 		}
 
 		a := out.App

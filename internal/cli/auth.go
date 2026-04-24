@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/dinacomputer/cli/internal/auth"
 	"github.com/spf13/cobra"
@@ -54,18 +55,43 @@ var authStatusCmd = &cobra.Command{
 	Short: "Show current authentication status",
 	Long:  "Print whether the CLI is authenticated and when the access token expires.",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := ValidateOutput(); err != nil {
+			return err
+		}
 		creds, err := auth.LoadCredentials()
 		if err != nil {
 			return err
 		}
-		if creds == nil || creds.AccessToken == "" {
+
+		type statusPayload struct {
+			Authenticated bool      `json:"authenticated"`
+			Expired       bool      `json:"expired,omitempty"`
+			ExpiresAt     time.Time `json:"expires_at,omitempty"`
+			APIBaseURL    string    `json:"api_base_url,omitempty"`
+			Issuer        string    `json:"issuer,omitempty"`
+		}
+
+		payload := statusPayload{}
+		if creds != nil && creds.AccessToken != "" {
+			payload.Authenticated = true
+			payload.Expired = creds.Expired()
+			payload.ExpiresAt = creds.ExpiresAt
+			payload.APIBaseURL = creds.APIBaseURL
+			payload.Issuer = creds.Issuer
+		}
+
+		if JSONOutput() {
+			return writeJSON(payload)
+		}
+
+		if !payload.Authenticated {
 			fmt.Println("Not authenticated. Run: dina auth login")
 			return nil
 		}
-		if creds.Expired() {
+		if payload.Expired {
 			fmt.Println("Authenticated (token expired — will refresh on next API call)")
 		} else {
-			fmt.Printf("Authenticated. Token expires at %s\n", creds.ExpiresAt.Format("2006-01-02 15:04:05"))
+			fmt.Printf("Authenticated. Token expires at %s\n", payload.ExpiresAt.Format("2006-01-02 15:04:05"))
 		}
 		return nil
 	},

@@ -17,6 +17,9 @@ var usersListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all users",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := ValidateOutput(); err != nil {
+			return err
+		}
 		client, err := api.NewClient()
 		if err != nil {
 			return err
@@ -25,6 +28,9 @@ var usersListCmd = &cobra.Command{
 		users, err := client.ListUsers()
 		if err != nil {
 			return err
+		}
+		if JSONOutput() {
+			return writeJSON(users)
 		}
 		if len(users) == 0 {
 			fmt.Println("No users found.")

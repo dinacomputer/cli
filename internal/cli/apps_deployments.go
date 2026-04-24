@@ -13,6 +13,9 @@ var appsDeploymentsCmd = &cobra.Command{
 	Use:   "deployments",
 	Short: "List deployments for an application",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := ValidateOutput(); err != nil {
+			return err
+		}
 		client, err := api.NewClient()
 		if err != nil {
 			return err
@@ -21,6 +24,9 @@ var appsDeploymentsCmd = &cobra.Command{
 		deps, err := client.ListDeployments(appsDeploymentsApp)
 		if err != nil {
 			return err
+		}
+		if JSONOutput() {
+			return writeJSON(deps)
 		}
 		if len(deps) == 0 {
 			fmt.Println("No deployments found.")

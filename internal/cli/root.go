@@ -11,10 +11,12 @@ import (
 )
 
 var (
-	noInput bool
-	quiet   bool
-	debug   bool
-	noColor bool
+	noInput    bool
+	quiet      bool
+	debug      bool
+	noColor    bool
+	output     string
+	validOutputs = map[string]bool{"text": true, "json": true}
 )
 
 var rootCmd = &cobra.Command{
@@ -49,6 +51,21 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress informational progress messages on stderr")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Print debug output (also honors DEBUG=1)")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable colorized output (also honors NO_COLOR and TERM=dumb)")
+	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "text", "Output format: text or json")
+}
+
+// JSONOutput reports whether -o json was passed. Commands that have a JSON
+// renderer should check this and emit JSON on stdout instead of the
+// human-readable form.
+func JSONOutput() bool { return output == "json" }
+
+// ValidateOutput returns an error if -o is set to an unsupported value. Call
+// from RunE at the top of commands that respect --output.
+func ValidateOutput() error {
+	if !validOutputs[output] {
+		return fmt.Errorf("invalid --output %q: expected 'text' or 'json'", output)
+	}
+	return nil
 }
 
 // runSkillCheck surfaces a warning on stderr when installed skills are

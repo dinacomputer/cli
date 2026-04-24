@@ -1,7 +1,9 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
@@ -11,6 +13,9 @@ var appsListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List all applications",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		if err := ValidateOutput(); err != nil {
+			return err
+		}
 		client, err := api.NewClient()
 		if err != nil {
 			return err
@@ -19,6 +24,9 @@ var appsListCmd = &cobra.Command{
 		apps, err := client.ListApps()
 		if err != nil {
 			return err
+		}
+		if JSONOutput() {
+			return writeJSON(apps)
 		}
 		if len(apps) == 0 {
 			fmt.Println("No apps found.")
@@ -30,6 +38,13 @@ var appsListCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+// writeJSON encodes v as indented JSON to stdout.
+func writeJSON(v any) error {
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(v)
 }
 
 func init() {
