@@ -123,3 +123,31 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+// ---------- Signals ----------
+
+type BugBody struct {
+	Product     string `json:"product"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	Severity    string `json:"severity,omitempty"`
+	OS          string `json:"os,omitempty"`
+	Version     string `json:"version,omitempty"`
+	Context     string `json:"context,omitempty"`
+}
+
+type FeatureRequestBody struct {
+	Product     string `json:"product"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+}
+
+type FeedbackBody struct {
+	Product string `json:"product"`
+	Message string `json:"message"`
+	Rating  int    `json:"rating,omitempty"`
+}
+
+type SubmitResponseBody struct {
+	ID string `json:"id"`
+}

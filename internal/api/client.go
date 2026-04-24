@@ -14,46 +14,76 @@ import (
 )
 
 const (
-	defaultBaseURL = "https://dina.sh/api/v1"
-	envBaseURL     = "DINA_API_URL"
-	envToken       = "DINA_API_TOKEN"
+	defaultBaseURL        = "https://dina.sh/api/v1"
+	defaultSignalsBaseURL = "https://signals.sokkel.io"
+	envBaseURL            = "DINA_API_URL"
+	envSignalsBaseURL     = "DINA_SIGNALS_URL"
+	envToken              = "DINA_API_TOKEN"
 )
 
 // Client is an HTTP client for the Dina API.
 type Client struct {
-	BaseURL string
-	creds   *auth.Credentials
-	token   string // static token from env var
-	http    *http.Client
+	BaseURL        string
+	SignalsBaseURL string
+	creds          *auth.Credentials
+	token          string // static token from env var
+	http           *http.Client
 }
 
-// NewClient creates a client. It first checks for stored OAuth credentials,
-// then falls back to the DINA_API_TOKEN environment variable.
-func NewClient() (*Client, error) {
+// newClient builds a client, loading stored credentials or the DINA_API_TOKEN
+// env var if present. The returned client may be unauthenticated.
+func newClient() *Client {
 	base := os.Getenv(envBaseURL)
-	if base == "" {
-		base = defaultBaseURL
-	}
+
 	c := &Client{
-		BaseURL: base,
-		http:    &http.Client{Timeout: 120 * time.Second},
+		http: &http.Client{Timeout: 120 * time.Second},
 	}
 
-	// Try stored OAuth credentials first.
 	creds, err := auth.LoadCredentials()
 	if err == nil && creds != nil && creds.AccessToken != "" {
 		c.creds = creds
-		return c, nil
-	}
-
-	// Fall back to env var.
-	tok := os.Getenv(envToken)
-	if tok != "" {
+		if base == "" && creds.APIBaseURL != "" {
+			base = creds.APIBaseURL
+		}
+	} else if tok := os.Getenv(envToken); tok != "" {
 		c.token = tok
-		return c, nil
 	}
 
-	return nil, fmt.Errorf("not authenticated — run: dina auth login")
+	if base == "" {
+		base = defaultBaseURL
+	}
+	c.BaseURL = base
+
+	signalsBase := os.Getenv(envSignalsBaseURL)
+	if signalsBase == "" {
+		signalsBase = defaultSignalsBaseURL
+	}
+	c.SignalsBaseURL = signalsBase
+
+	return c
+}
+
+// NewClient returns a client for authenticated Dina API calls. Fails if no
+// credentials are available.
+func NewClient() (*Client, error) {
+	c := newClient()
+	if !c.hasAuth() {
+		return nil, fmt.Errorf("not authenticated — run: dina auth login")
+	}
+	return c, nil
+}
+
+// NewAnonymousClient returns a client whether or not credentials are available.
+// Suitable for endpoints that treat auth as optional.
+func NewAnonymousClient() *Client {
+	return newClient()
+}
+
+func (c *Client) hasAuth() bool {
+	if c.token != "" {
+		return true
+	}
+	return c.creds != nil && c.creds.AccessToken != ""
 }
 
 // bearerToken returns a valid access token, refreshing if needed.
