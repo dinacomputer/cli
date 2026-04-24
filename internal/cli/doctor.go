@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/dinacomputer/cli/internal/color"
 	"github.com/dinacomputer/cli/internal/doctor"
 	"github.com/spf13/cobra"
 )
@@ -68,16 +69,42 @@ func (silentExitError) Error() string { return "" }
 
 func printResults(results []doctor.Result, indent string) {
 	for _, r := range results {
-		status := fmt.Sprintf("[%s]", r.Status)
-		fmt.Fprintf(os.Stderr, "%s%-7s %-20s %s", indent, status, r.Name, r.Summary)
+		tag := fmt.Sprintf("[%s]", r.Status)
+		switch r.Status {
+		case doctor.StatusOK:
+			tag = color.Green(tag)
+		case doctor.StatusWarn:
+			tag = color.Yellow(tag)
+		case doctor.StatusFail:
+			tag = color.Red(tag)
+		}
+		// %-7s on a colored string counts ANSI bytes; render the raw tag
+		// into a width-aware slot manually.
+		rawTag := fmt.Sprintf("[%s]", r.Status)
+		pad := 7 - len(rawTag)
+		if pad < 1 {
+			pad = 1
+		}
+		fmt.Fprintf(os.Stderr, "%s%s%s%-20s %s", indent, tag, spaces(pad), r.Name, r.Summary)
 		if r.Status != doctor.StatusOK && r.FixHint != "" && !r.Fixable() {
-			fmt.Fprintf(os.Stderr, "  →  run: %s", r.FixHint)
+			fmt.Fprintf(os.Stderr, "  →  run: %s", color.Bold(r.FixHint))
 		}
 		fmt.Fprintln(os.Stderr)
 		for _, d := range r.Details {
 			fmt.Fprintf(os.Stderr, "%s        - %s\n", indent, d)
 		}
 	}
+}
+
+func spaces(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	s := make([]byte, n)
+	for i := range s {
+		s[i] = ' '
+	}
+	return string(s)
 }
 
 func countIssues(results []doctor.Result) int {

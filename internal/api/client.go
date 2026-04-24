@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/dinacomputer/cli/internal/auth"
@@ -24,6 +25,10 @@ const (
 // UserAgent is the value sent in the User-Agent header on outbound requests.
 // The CLI sets this at startup with the build version and runtime info.
 var UserAgent = "dina/unknown"
+
+// Debug, when true, logs each outgoing request's method, URL, and response
+// status to stderr. The CLI wires this from --debug / DEBUG=1.
+var Debug bool
 
 // Client is an HTTP client for the Dina API.
 type Client struct {
@@ -139,24 +144,80 @@ func (c *Client) newRequest(method, path string, body any) (*http.Request, error
 }
 
 func (c *Client) do(req *http.Request, out any) error {
+	if Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: %s %s\n", req.Method, req.URL)
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not reach %s — check your connection or set %s: %w", req.URL.Host, envBaseURL, err)
 	}
 	defer resp.Body.Close()
+	if Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: <- %d %s\n", resp.StatusCode, resp.Status)
+	}
 
 	if resp.StatusCode >= 400 {
 		var apiErr ErrorModel
-		if err := json.NewDecoder(resp.Body).Decode(&apiErr); err == nil && apiErr.Detail != "" {
-			return fmt.Errorf("API error %d: %s", resp.StatusCode, apiErr.Detail)
-		}
-		return fmt.Errorf("API error %d", resp.StatusCode)
+		_ = json.NewDecoder(resp.Body).Decode(&apiErr)
+		return wrapHTTPError(req, resp, apiErr)
 	}
 
 	if out != nil && resp.StatusCode != http.StatusNoContent {
 		return json.NewDecoder(resp.Body).Decode(out)
 	}
 	return nil
+}
+
+// wrapHTTPError turns a non-2xx API response into a message that tells the
+// user what to do next.
+func wrapHTTPError(req *http.Request, resp *http.Response, apiErr ErrorModel) error {
+	detail := apiErr.Detail
+	path := req.URL.Path
+
+	switch resp.StatusCode {
+	case http.StatusUnauthorized:
+		return fmt.Errorf("not authenticated or token expired — run: dina auth login")
+	case http.StatusForbidden:
+		if detail != "" {
+			return fmt.Errorf("forbidden: %s", detail)
+		}
+		return fmt.Errorf("forbidden — your account may not have permission for this operation")
+	case http.StatusNotFound:
+		if name, ok := appNameFromPath(path); ok {
+			return fmt.Errorf("no app named %q — list apps with: dina apps list", name)
+		}
+		if detail != "" {
+			return fmt.Errorf("not found: %s", detail)
+		}
+		return fmt.Errorf("not found (%s)", path)
+	case http.StatusTooManyRequests:
+		return fmt.Errorf("rate limited by %s — retry in a few moments", req.URL.Host)
+	}
+
+	if resp.StatusCode >= 500 {
+		if detail != "" {
+			return fmt.Errorf("server error %d from %s: %s — retry shortly", resp.StatusCode, req.URL.Host, detail)
+		}
+		return fmt.Errorf("server error %d from %s — retry shortly", resp.StatusCode, req.URL.Host)
+	}
+
+	if detail != "" {
+		return fmt.Errorf("API error %d: %s", resp.StatusCode, detail)
+	}
+	return fmt.Errorf("API error %d", resp.StatusCode)
+}
+
+// appNameFromPath pulls the <name> out of any /.../apps/<name>/... path so
+// 404s can tell the user which app was missing. Handles both /apps/foo and
+// /api/v1/apps/foo.
+func appNameFromPath(p string) (string, bool) {
+	parts := strings.Split(p, "/")
+	for i, seg := range parts {
+		if seg == "apps" && i+1 < len(parts) && parts[i+1] != "" {
+			return parts[i+1], true
+		}
+	}
+	return "", false
 }
 
 // ---------- Apps ----------

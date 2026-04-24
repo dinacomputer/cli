@@ -8,6 +8,7 @@ import (
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/dinacomputer/cli/internal/archive"
+	"github.com/dinacomputer/cli/internal/color"
 	"github.com/dinacomputer/cli/internal/term"
 	"github.com/spf13/cobra"
 )
@@ -140,17 +141,19 @@ func waitForDeployment(client *api.Client, appName, deploymentID string) error {
 			elapsed := time.Since(start).Truncate(time.Second)
 			switch dep.Status {
 			case "running":
+				runningTag := color.Green("running")
 				if animated {
-					Infof("\rDeployment is running (%s)          \n", elapsed)
+					Infof("\rDeployment is %s (%s)          \n", runningTag, elapsed)
 				} else {
-					Infof("Deployment is running (%s)\n", elapsed)
+					Infof("Deployment is %s (%s)\n", runningTag, elapsed)
 				}
 				return nil
 			case "failed", "build_failed", "deploy_failed":
+				failedTag := color.Red(dep.Status)
 				if animated {
-					Infof("\rDeployment failed: %s (%s)          \n", dep.Status, elapsed)
+					Infof("\rDeployment failed: %s (%s)          \n", failedTag, elapsed)
 				} else {
-					Infof("Deployment failed: %s (%s)\n", dep.Status, elapsed)
+					Infof("Deployment failed: %s (%s)\n", failedTag, elapsed)
 				}
 				return fmt.Errorf("deployment %s failed with status: %s", deploymentID, dep.Status)
 			default:

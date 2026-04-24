@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/dinacomputer/cli/internal/api"
+	"github.com/dinacomputer/cli/internal/color"
 	"github.com/dinacomputer/cli/internal/skills"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +24,24 @@ var rootCmd = &cobra.Command{
 
 Report bugs or send feedback with ` + "`dina feedback bug`" + ` / ` + "`dina feedback`" + ` —
 or file issues at https://github.com/dinacomputer/cli/issues.`,
-	PersistentPreRun: runSkillCheck,
+	// SilenceUsage suppresses the usage dump when a RunE returns an error.
+	// Cobra still shows usage for flag-parsing errors, which is the right
+	// behavior: the user needs help fixing syntax, not for API errors.
+	SilenceUsage: true,
+	// SilenceErrors lets us own the "error:" prefix via Execute() instead
+	// of getting cobra's default "Error: ..." line plus our own duplicate.
+	SilenceErrors:    true,
+	PersistentPreRun: persistentPreRun,
+}
+
+func persistentPreRun(cmd *cobra.Command, args []string) {
+	if noColor {
+		color.Disable()
+	}
+	if Debug() {
+		api.Debug = true
+	}
+	runSkillCheck(cmd, args)
 }
 
 func init() {
@@ -98,7 +117,7 @@ func Infoln(args ...any) {
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		if msg := err.Error(); msg != "" {
-			fmt.Fprintln(os.Stderr, msg)
+			fmt.Fprintf(os.Stderr, "%s %s\n", color.Red("error:"), msg)
 		}
 		os.Exit(1)
 	}
