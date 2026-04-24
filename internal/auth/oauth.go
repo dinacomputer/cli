@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/base64"
@@ -10,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -18,9 +16,11 @@ import (
 )
 
 const (
-	issuer           = "https://dina.sh"
-	authorizationURL = issuer + "/oauth/authorize"
-	tokenURL         = issuer + "/oauth/token"
+	legacyIssuer           = "https://dina.sh"
+	legacyAuthorizationURL = legacyIssuer + "/oauth/authorize"
+	legacyTokenURL         = legacyIssuer + "/oauth/token"
+	legacyClientID         = "dina-cli"
+	newClientID            = "d35bfdfa-f03c-481b-a3be-aaf96570611e"
 )
 
 // tokenResponse is the JSON body returned by the token endpoint.
@@ -31,11 +31,42 @@ type tokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 }
 
-// Login performs the full OAuth 2.0 authorization code flow with PKCE.
-// When headless is true, the browser is not opened automatically; the user
-// must visit the printed URL manually (e.g. over an SSH session).
-func Login(headless bool) (*Credentials, error) {
-	// 1. Start local callback server.
+// Login discovers the auth server and selects the appropriate flow.
+// If the server supports RFC 8628 device authorization, it uses that.
+// Otherwise it falls back to PKCE authorization code flow.
+func Login() (*Credentials, error) {
+	apiBase := ResolveAPIBase()
+
+	issuer, err := DiscoverIssuer(apiBase)
+	if err != nil {
+		issuer = legacyIssuer
+	}
+
+	var creds *Credentials
+
+	oidcCfg, err := DiscoverOIDC(issuer)
+	if err != nil {
+		creds, err = PKCELogin(legacyClientID)
+	} else if oidcCfg != nil && oidcCfg.DeviceAuthorizationEndpoint != "" {
+		creds, err = DeviceLogin(oidcCfg, newClientID)
+	} else {
+		creds, err = PKCELogin(legacyClientID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Store the API base URL so future commands know which API to use.
+	creds.APIBaseURL = apiBase
+	if err := SaveCredentials(creds); err != nil {
+		return nil, fmt.Errorf("saving credentials: %w", err)
+	}
+	return creds, nil
+}
+
+// PKCELogin performs the OAuth 2.0 authorization code flow with PKCE.
+// Used as a fallback for servers that don't support the device code grant.
+func PKCELogin(clientID string) (*Credentials, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, fmt.Errorf("starting callback server: %w", err)
@@ -43,10 +74,6 @@ func Login(headless bool) (*Credentials, error) {
 	port := listener.Addr().(*net.TCPAddr).Port
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d/callback", port)
 
-	// 2. Use fixed client ID.
-	clientID := "dina-cli"
-
-	// 3. Generate PKCE + state.
 	pkce, err := NewPKCE()
 	if err != nil {
 		listener.Close()
@@ -56,9 +83,8 @@ func Login(headless bool) (*Credentials, error) {
 	rand.Read(stateBuf)
 	state := base64.RawURLEncoding.EncodeToString(stateBuf)
 
-	// 4. Build authorization URL and open browser.
 	authURL := fmt.Sprintf("%s?response_type=code&client_id=%s&redirect_uri=%s&state=%s&code_challenge=%s&code_challenge_method=S256&scope=%s",
-		authorizationURL,
+		legacyAuthorizationURL,
 		url.QueryEscape(clientID),
 		url.QueryEscape(redirectURI),
 		url.QueryEscape(state),
@@ -66,70 +92,51 @@ func Login(headless bool) (*Credentials, error) {
 		url.QueryEscape("openid profile offline_access"),
 	)
 
+	fmt.Println("Opening browser to authenticate...")
+	fmt.Printf("If the browser doesn't open, visit:\n  %s\n\n", authURL)
+	openBrowser(authURL)
+
+	codeCh := make(chan string, 1)
+	errCh := make(chan error, 1)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("state") != state {
+			errCh <- fmt.Errorf("state mismatch")
+			http.Error(w, "State mismatch", http.StatusBadRequest)
+			return
+		}
+		if errParam := r.URL.Query().Get("error"); errParam != "" {
+			desc := r.URL.Query().Get("error_description")
+			errCh <- fmt.Errorf("authorization error: %s — %s", errParam, desc)
+			fmt.Fprintf(w, "<html><body><h1>Authentication failed</h1><p>%s</p></body></html>", desc)
+			return
+		}
+		c := r.URL.Query().Get("code")
+		if c == "" {
+			errCh <- fmt.Errorf("no code in callback")
+			http.Error(w, "Missing code", http.StatusBadRequest)
+			return
+		}
+		fmt.Fprint(w, "<html><body><h1>Authenticated!</h1><p>You can close this tab.</p></body></html>")
+		codeCh <- c
+	})
+
+	server := &http.Server{Handler: mux}
+	go server.Serve(listener)
+
 	var code string
-
-	if headless {
-		listener.Close()
-
-		fmt.Printf("Visit this URL to authenticate:\n\n  %s\n\n", authURL)
-		fmt.Print("After authenticating, paste the callback URL here: ")
-
-		line, err := bufio.NewReader(os.Stdin).ReadString('\n')
-		if err != nil {
-			return nil, fmt.Errorf("reading callback URL: %w", err)
-		}
-		code, err = parseCallbackURL(strings.TrimSpace(line), state)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		fmt.Println("Opening browser to authenticate...")
-		fmt.Printf("If the browser doesn't open, visit:\n  %s\n\n", authURL)
-		openBrowser(authURL)
-
-		// Wait for callback.
-		codeCh := make(chan string, 1)
-		errCh := make(chan error, 1)
-
-		mux := http.NewServeMux()
-		mux.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-			if r.URL.Query().Get("state") != state {
-				errCh <- fmt.Errorf("state mismatch")
-				http.Error(w, "State mismatch", http.StatusBadRequest)
-				return
-			}
-			if errParam := r.URL.Query().Get("error"); errParam != "" {
-				desc := r.URL.Query().Get("error_description")
-				errCh <- fmt.Errorf("authorization error: %s — %s", errParam, desc)
-				fmt.Fprintf(w, "<html><body><h1>Authentication failed</h1><p>%s</p></body></html>", desc)
-				return
-			}
-			c := r.URL.Query().Get("code")
-			if c == "" {
-				errCh <- fmt.Errorf("no code in callback")
-				http.Error(w, "Missing code", http.StatusBadRequest)
-				return
-			}
-			fmt.Fprint(w, "<html><body><h1>Authenticated!</h1><p>You can close this tab.</p></body></html>")
-			codeCh <- c
-		})
-
-		server := &http.Server{Handler: mux}
-		go server.Serve(listener)
-
-		select {
-		case code = <-codeCh:
-		case err := <-errCh:
-			server.Shutdown(context.Background())
-			return nil, err
-		case <-time.After(2 * time.Minute):
-			server.Shutdown(context.Background())
-			return nil, fmt.Errorf("timed out waiting for authentication")
-		}
+	select {
+	case code = <-codeCh:
+	case err := <-errCh:
 		server.Shutdown(context.Background())
+		return nil, err
+	case <-time.After(2 * time.Minute):
+		server.Shutdown(context.Background())
+		return nil, fmt.Errorf("timed out waiting for authentication")
 	}
+	server.Shutdown(context.Background())
 
-	// 6. Exchange code for tokens.
 	fmt.Println("Exchanging authorization code for tokens...")
 	tok, err := exchangeCode(clientID, code, redirectURI, pkce.Verifier)
 	if err != nil {
@@ -138,6 +145,7 @@ func Login(headless bool) (*Credentials, error) {
 
 	result := &Credentials{
 		ClientID:     clientID,
+		Issuer:       legacyIssuer,
 		AccessToken:  tok.AccessToken,
 		RefreshToken: tok.RefreshToken,
 		ExpiresAt:    time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
@@ -153,6 +161,8 @@ func RefreshAccessToken(creds *Credentials) (*Credentials, error) {
 	if creds.RefreshToken == "" {
 		return nil, fmt.Errorf("no refresh token available, please run: dina auth login")
 	}
+
+	tokenURL := resolveTokenURL(creds.Issuer)
 
 	data := url.Values{
 		"grant_type":    {"refresh_token"},
@@ -186,22 +196,15 @@ func RefreshAccessToken(creds *Credentials) (*Credentials, error) {
 	return creds, nil
 }
 
-func parseCallbackURL(raw, expectedState string) (string, error) {
-	u, err := url.Parse(raw)
-	if err != nil {
-		return "", fmt.Errorf("invalid callback URL: %w", err)
+// resolveTokenURL determines the token endpoint for a given issuer.
+func resolveTokenURL(issuer string) string {
+	if issuer != "" {
+		cfg, err := DiscoverOIDC(issuer)
+		if err == nil && cfg != nil && cfg.TokenEndpoint != "" {
+			return cfg.TokenEndpoint
+		}
 	}
-	if s := u.Query().Get("state"); s != expectedState {
-		return "", fmt.Errorf("state mismatch in callback URL")
-	}
-	if errParam := u.Query().Get("error"); errParam != "" {
-		return "", fmt.Errorf("authorization error: %s — %s", errParam, u.Query().Get("error_description"))
-	}
-	code := u.Query().Get("code")
-	if code == "" {
-		return "", fmt.Errorf("no code found in callback URL")
-	}
-	return code, nil
+	return legacyTokenURL
 }
 
 func exchangeCode(clientID, code, redirectURI, codeVerifier string) (*tokenResponse, error) {
@@ -213,7 +216,7 @@ func exchangeCode(clientID, code, redirectURI, codeVerifier string) (*tokenRespo
 		"code_verifier": {codeVerifier},
 	}
 
-	resp, err := http.PostForm(tokenURL, data)
+	resp, err := http.PostForm(legacyTokenURL, data)
 	if err != nil {
 		return nil, fmt.Errorf("token exchange failed: %w", err)
 	}
@@ -246,3 +249,4 @@ func openBrowser(url string) {
 	}
 	exec.Command(cmd, args...).Start()
 }
+

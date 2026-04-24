@@ -14,6 +14,8 @@ const configDirName = "dina"
 type Credentials struct {
 	ClientID     string    `json:"client_id,omitempty"`
 	ClientSecret string    `json:"client_secret,omitempty"`
+	Issuer       string    `json:"issuer,omitempty"`
+	APIBaseURL   string    `json:"api_base_url,omitempty"`
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
 	ExpiresAt    time.Time `json:"expires_at"`
