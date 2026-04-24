@@ -23,9 +23,10 @@ var (
 )
 
 var deployCmd = &cobra.Command{
-	Use:   "deploy",
-	Short: "Deploy an application",
-	Long:  "Deploy an application to the Dina platform. If --tag is not provided, the current directory is zipped and uploaded as source.",
+	Use:     "deploy",
+	Short:   "Deploy an application",
+	Long:    "Deploy an application to the Dina platform. If --tag is not provided, the current directory is zipped and uploaded as source.",
+	GroupID: groupDeploy,
 	Example: `  # deploy from the current directory's source
   dina deploy -a my-app
 

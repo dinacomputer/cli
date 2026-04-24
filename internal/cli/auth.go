@@ -15,6 +15,7 @@ var authCmd = &cobra.Command{
 
 The CLI stores OAuth credentials at ~/.config/dina/auth.json with 0600 permissions.
 Most commands require you to be authenticated — run ` + "`dina auth login`" + ` first.`,
+	GroupID: groupAccount,
 }
 
 var authLoginCmd = &cobra.Command{

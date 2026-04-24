@@ -15,6 +15,7 @@ var doctorCmd = &cobra.Command{
 	Use:           "doctor",
 	Short:         "Run diagnostic checks",
 	Long:          "Run diagnostic checks on the CLI's local state: authentication, installed skills, and CLI version. Pass --fix to auto-repair any fixable issues.",
+	GroupID:       groupCLI,
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	RunE: func(cmd *cobra.Command, args []string) error {

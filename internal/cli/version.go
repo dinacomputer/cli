@@ -12,9 +12,10 @@ import (
 var Version = "dev"
 
 var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print the CLI version",
-	Long:  "Print the installed CLI version. The version is injected at build time via -ldflags.",
+	Use:     "version",
+	Short:   "Print the CLI version",
+	Long:    "Print the installed CLI version. The version is injected at build time via -ldflags.",
+	GroupID: groupCLI,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("dina " + Version)
 	},

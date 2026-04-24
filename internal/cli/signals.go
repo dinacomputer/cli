@@ -169,6 +169,7 @@ For bug reports, use ` + "`dina feedback bug`" + `. For feature requests, use
 ` + "`dina feedback feature`" + `. Without a subcommand, this command submits an
 open-ended message with an optional 1-5 rating.`,
 	Example: `  dina feedback --message "The new error messages are much clearer, thanks!" --rating 5`,
+	GroupID: groupFeedback,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		message := feedbackMessage
 		ratingStr := ""

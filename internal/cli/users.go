@@ -8,9 +8,10 @@ import (
 )
 
 var usersCmd = &cobra.Command{
-	Use:   "users",
-	Short: "Manage users (admin only)",
-	Long:  "List and manage platform users. These commands require admin privileges.",
+	Use:     "users",
+	Short:   "Manage users (admin only)",
+	Long:    "List and manage platform users. These commands require admin privileges.",
+	GroupID: groupAdmin,
 }
 
 var usersListCmd = &cobra.Command{

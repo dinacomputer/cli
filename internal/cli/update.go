@@ -30,6 +30,8 @@ type githubAsset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
+var updateCheck bool
+
 var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update dina to the latest version",
@@ -37,9 +39,15 @@ var updateCmd = &cobra.Command{
 
 Releases are fetched from https://github.com/dinacomputer/cli/releases. The
 new binary is extracted to a temp dir and atomically renamed over the current
-binary (on Unix) or swapped via .old/.new shuffling (on Windows).`,
+binary (on Unix) or swapped via .old/.new shuffling (on Windows).
+
+Pass --check to see whether an update is available without installing anything.`,
 	Example: `  # check for and install the latest version
-  dina update`,
+  dina update
+
+  # only check — don't install
+  dina update --check`,
+	GroupID: groupCLI,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		Infoln("Checking for updates...")
 		latest, err := fetchLatestRelease()
@@ -51,7 +59,13 @@ binary (on Unix) or swapped via .old/.new shuffling (on Windows).`,
 		currentVersion := strings.TrimPrefix(Version, "v")
 
 		if latestVersion == currentVersion {
-			Infof("Already up to date (v%s).\n", currentVersion)
+			fmt.Printf("Up to date (v%s).\n", currentVersion)
+			return nil
+		}
+
+		if updateCheck {
+			fmt.Printf("Update available: v%s → v%s\n", currentVersion, latestVersion)
+			fmt.Println("Run 'dina update' to install the latest version.")
 			return nil
 		}
 
@@ -122,36 +136,10 @@ binary (on Unix) or swapped via .old/.new shuffling (on Windows).`,
 	},
 }
 
-var checkUpdateCmd = &cobra.Command{
-	Use:   "check-update",
-	Short: "Check if a newer version is available",
-	Long: `Compare the installed version to the latest GitHub release without installing anything.
-
-Exits 0 whether or not an update is available; the output tells you which case you are in.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		Infoln("Checking for updates...")
-		latest, err := fetchLatestRelease()
-		if err != nil {
-			return fmt.Errorf("failed to check for updates: %w", err)
-		}
-
-		latestVersion := strings.TrimPrefix(latest.TagName, "v")
-		currentVersion := strings.TrimPrefix(Version, "v")
-
-		if latestVersion == currentVersion {
-			fmt.Printf("Up to date (v%s).\n", currentVersion)
-			return nil
-		}
-
-		fmt.Printf("Update available: v%s → v%s\n", currentVersion, latestVersion)
-		fmt.Println("Run 'dina update' to install the latest version.")
-		return nil
-	},
-}
 
 func init() {
+	updateCmd.Flags().BoolVar(&updateCheck, "check", false, "Only check if an update is available; don't install")
 	rootCmd.AddCommand(updateCmd)
-	rootCmd.AddCommand(checkUpdateCmd)
 }
 
 func fetchLatestRelease() (*githubRelease, error) {

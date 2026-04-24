@@ -46,12 +46,35 @@ func persistentPreRun(cmd *cobra.Command, args []string) {
 	runSkillCheck(cmd, args)
 }
 
+// Command group IDs. Cobra renders help using the order AddGroup is called,
+// so the order of these constants matches the order below in init().
+const (
+	groupDeploy   = "deploy"
+	groupFeedback = "feedback"
+	groupAccount  = "account"
+	groupCLI      = "cli"
+	groupAdmin    = "admin"
+)
+
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&noInput, "no-input", false, "Disable interactive prompts (fail if input is required)")
 	rootCmd.PersistentFlags().BoolVarP(&quiet, "quiet", "q", false, "Suppress informational progress messages on stderr")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Print debug output (also honors DEBUG=1)")
 	rootCmd.PersistentFlags().BoolVar(&noColor, "no-color", false, "Disable colorized output (also honors NO_COLOR and TERM=dumb)")
 	rootCmd.PersistentFlags().StringVarP(&output, "output", "o", "text", "Output format: text or json")
+
+	rootCmd.AddGroup(
+		&cobra.Group{ID: groupDeploy, Title: "Deploy and manage apps:"},
+		&cobra.Group{ID: groupFeedback, Title: "Share feedback:"},
+		&cobra.Group{ID: groupAccount, Title: "Account:"},
+		&cobra.Group{ID: groupCLI, Title: "CLI maintenance:"},
+		&cobra.Group{ID: groupAdmin, Title: "Admin:"},
+	)
+
+	// The auto-generated `completion` command works but is rarely what users
+	// want to see in the main help. Hide it — `dina completion --help` still
+	// prints its docs for anyone who goes looking.
+	rootCmd.CompletionOptions.HiddenDefaultCmd = true
 }
 
 // JSONOutput reports whether -o json was passed. Commands that have a JSON

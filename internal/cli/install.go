@@ -8,9 +8,10 @@ import (
 var installSkills bool
 
 var installCmd = &cobra.Command{
-	Use:   "install",
-	Short: "Install resources",
-	Long:  "Install resources for the Dina CLI. Use --skills to install agent skill files that teach AI tools (Claude Code, Cursor, VS Code Copilot, Gemini, OpenAI Codex) how to use the Dina CLI.",
+	Use:     "install",
+	Short:   "Install resources",
+	Long:    "Install resources for the Dina CLI. Use --skills to install agent skill files that teach AI tools (Claude Code, Cursor, VS Code Copilot, Gemini, OpenAI Codex) how to use the Dina CLI.",
+	GroupID: groupCLI,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if installSkills {
 			if err := requireInteractive("skill installation", "(interactive mode only)"); err != nil {
