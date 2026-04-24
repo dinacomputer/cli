@@ -81,12 +81,14 @@ dina deploy -a my-app --replicas 3
 dina deploy -a my-app --tag nginx:latest --replicas 2
 ` + "```" + `
 
-Deploy and wait for completion (blocks until running or failed):
+Deploy and wait for completion:
 
 ` + "```bash" + `
 dina deploy -a my-app --wait
 dina deploy -a my-app --tag nginx:latest -w
 ` + "```" + `
+
+The ` + "`--wait`" + ` flag polls the deployment status every 2 seconds until it reaches a terminal state. Status progression: ` + "`pending`" + ` → ` + "`building`" + ` → ` + "`deploying`" + ` → ` + "`running`" + `. Failure states: ` + "`failed`" + `, ` + "`build_failed`" + `, ` + "`deploy_failed`" + `. Times out after 10 minutes. The command exits with a non-zero code on failure or timeout. Always use ` + "`--wait`" + ` when you need to confirm a deployment succeeded before proceeding.
 
 ### Apps
 
