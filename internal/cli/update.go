@@ -41,7 +41,7 @@ binary (on Unix) or swapped via .old/.new shuffling (on Windows).`,
 	Example: `  # check for and install the latest version
   dina update`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Fprintln(os.Stderr, "Checking for updates...")
+		Infoln("Checking for updates...")
 		latest, err := fetchLatestRelease()
 		if err != nil {
 			return fmt.Errorf("failed to check for updates: %w", err)
@@ -51,11 +51,11 @@ binary (on Unix) or swapped via .old/.new shuffling (on Windows).`,
 		currentVersion := strings.TrimPrefix(Version, "v")
 
 		if latestVersion == currentVersion {
-			fmt.Fprintf(os.Stderr, "Already up to date (v%s).\n", currentVersion)
+			Infof("Already up to date (v%s).\n", currentVersion)
 			return nil
 		}
 
-		fmt.Fprintf(os.Stderr, "New version available: v%s (current: v%s)\n", latestVersion, currentVersion)
+		Infof("New version available: v%s (current: v%s)\n", latestVersion, currentVersion)
 
 		assetName := fmt.Sprintf("dina_%s_%s_%s.tar.gz", latestVersion, runtime.GOOS, runtime.GOARCH)
 		if runtime.GOOS == "windows" {
@@ -73,7 +73,7 @@ binary (on Unix) or swapped via .old/.new shuffling (on Windows).`,
 			return fmt.Errorf("no release asset found for %s/%s", runtime.GOOS, runtime.GOARCH)
 		}
 
-		fmt.Fprintf(os.Stderr, "Downloading %s...\n", assetName)
+		Infof("Downloading %s...\n", assetName)
 
 		tmpDir, err := os.MkdirTemp("", "dina-update-*")
 		if err != nil {
@@ -117,7 +117,7 @@ binary (on Unix) or swapped via .old/.new shuffling (on Windows).`,
 			return fmt.Errorf("failed to replace binary: %w", err)
 		}
 
-		fmt.Fprintf(os.Stderr, "Updated to v%s successfully!\n", latestVersion)
+		Infof("Updated to v%s successfully!\n", latestVersion)
 		return nil
 	},
 }
@@ -129,7 +129,7 @@ var checkUpdateCmd = &cobra.Command{
 
 Exits 0 whether or not an update is available; the output tells you which case you are in.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Fprintln(os.Stderr, "Checking for updates...")
+		Infoln("Checking for updates...")
 		latest, err := fetchLatestRelease()
 		if err != nil {
 			return fmt.Errorf("failed to check for updates: %w", err)

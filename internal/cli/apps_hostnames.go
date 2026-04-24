@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
@@ -57,7 +56,7 @@ var appsHostnamesRemoveCmd = &cobra.Command{
 		if err := client.RemoveHostname(appsHostnamesRemoveApp, args[0]); err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "Hostname %s removed.\n", args[0])
+		Infof("Hostname %s removed.\n", args[0])
 		return nil
 	},
 }

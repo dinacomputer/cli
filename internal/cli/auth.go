@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/dinacomputer/cli/internal/auth"
 	"github.com/spf13/cobra"
@@ -32,7 +31,7 @@ authorization code flow otherwise. Tokens are stored at ~/.config/dina/auth.json
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "Authenticated! Token expires at %s\n", creds.ExpiresAt.Format("2006-01-02 15:04:05"))
+		Infof("Authenticated! Token expires at %s\n", creds.ExpiresAt.Format("2006-01-02 15:04:05"))
 		return nil
 	},
 }
@@ -45,7 +44,7 @@ var authLogoutCmd = &cobra.Command{
 		if err := auth.ClearCredentials(); err != nil {
 			return err
 		}
-		fmt.Fprintln(os.Stderr, "Logged out.")
+		Infoln("Logged out.")
 		return nil
 	},
 }

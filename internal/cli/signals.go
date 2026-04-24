@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"runtime"
 	"strconv"
@@ -234,6 +235,13 @@ func loadContext(inline, path string) (string, error) {
 	if inline != "" && path != "" {
 		return "", fmt.Errorf("--context and --context-file are mutually exclusive")
 	}
+	if path == "-" {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return "", fmt.Errorf("reading context from stdin: %w", err)
+		}
+		return string(data), nil
+	}
 	if path != "" {
 		data, err := os.ReadFile(path)
 		if err != nil {
@@ -271,7 +279,7 @@ func init() {
 	bugCmd.Flags().StringVarP(&bugDescription, "description", "d", "", "What happened, what was expected, repro steps")
 	bugCmd.Flags().StringVarP(&bugSeverity, "severity", "s", "", "Severity: low, medium, or high")
 	bugCmd.Flags().StringVar(&bugContext, "context", "", "Optional context (logs, stack trace, env)")
-	bugCmd.Flags().StringVar(&bugContextFile, "context-file", "", "Path to a file whose contents will be submitted as context")
+	bugCmd.Flags().StringVar(&bugContextFile, "context-file", "", "Path to a file whose contents will be submitted as context (use - for stdin)")
 
 	featureCmd.Flags().StringVarP(&featureTitle, "title", "t", "", "Short summary of the feature request")
 	featureCmd.Flags().StringVarP(&featureDescription, "description", "d", "", "Full description of the feature request")

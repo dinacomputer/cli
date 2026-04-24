@@ -1,9 +1,6 @@
 package cli
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
 )
@@ -36,7 +33,7 @@ to skip the prompt in scripts.`,
 		if err := client.DeleteApp(appsDeleteApp); err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "App %q deleted.\n", appsDeleteApp)
+		Infof("App %q deleted.\n", appsDeleteApp)
 		return nil
 	},
 }

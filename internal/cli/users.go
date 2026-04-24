@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
@@ -22,7 +21,7 @@ var usersListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(os.Stderr, "Fetching users...")
+		Infoln("Fetching users...")
 		users, err := client.ListUsers()
 		if err != nil {
 			return err

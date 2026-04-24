@@ -80,12 +80,12 @@ var deployCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(os.Stderr, "Packaging source code...")
+			Infoln("Packaging source code...")
 			zipData, err := archive.ZipDir(cwd)
 			if err != nil {
 				return fmt.Errorf("zipping source: %w", err)
 			}
-			fmt.Fprintf(os.Stderr, "Uploading archive (%.1f KB)...\n", float64(len(zipData))/1024)
+			Infof("Uploading archive (%.1f KB)...\n", float64(len(zipData))/1024)
 
 			dep, err = client.DeploySource(deployApp, zipData, buildArgs)
 			if err != nil {
@@ -120,20 +120,20 @@ func waitForDeployment(client *api.Client, appName, deploymentID string) error {
 
 	start := time.Now()
 	lastStatus := ""
-	animated := term.IsStderrTTY()
+	animated := term.IsStderrTTY() && !Quiet()
 
 	for {
 		select {
 		case <-timeout:
 			if animated {
-				fmt.Fprintln(os.Stderr)
+				Infoln()
 			}
 			return fmt.Errorf("timed out waiting for deployment %s", deploymentID)
 		case <-ticker.C:
 			dep, err := client.GetDeployment(appName, deploymentID)
 			if err != nil {
 				if animated {
-					fmt.Fprintln(os.Stderr)
+					Infoln()
 				}
 				return err
 			}
@@ -141,30 +141,30 @@ func waitForDeployment(client *api.Client, appName, deploymentID string) error {
 			switch dep.Status {
 			case "running":
 				if animated {
-					fmt.Fprintf(os.Stderr, "\rDeployment is running (%s)          \n", elapsed)
+					Infof("\rDeployment is running (%s)          \n", elapsed)
 				} else {
-					fmt.Fprintf(os.Stderr, "Deployment is running (%s)\n", elapsed)
+					Infof("Deployment is running (%s)\n", elapsed)
 				}
 				return nil
 			case "failed", "build_failed", "deploy_failed":
 				if animated {
-					fmt.Fprintf(os.Stderr, "\rDeployment failed: %s (%s)          \n", dep.Status, elapsed)
+					Infof("\rDeployment failed: %s (%s)          \n", dep.Status, elapsed)
 				} else {
-					fmt.Fprintf(os.Stderr, "Deployment failed: %s (%s)\n", dep.Status, elapsed)
+					Infof("Deployment failed: %s (%s)\n", dep.Status, elapsed)
 				}
 				return fmt.Errorf("deployment %s failed with status: %s", deploymentID, dep.Status)
 			default:
 				if dep.Status != lastStatus {
 					if animated && lastStatus != "" {
-						fmt.Fprintln(os.Stderr)
+						Infoln()
 					}
 					if !animated {
-						fmt.Fprintf(os.Stderr, "  %s... %s\n", dep.Status, elapsed)
+						Infof("  %s... %s\n", dep.Status, elapsed)
 					}
 					lastStatus = dep.Status
 				}
 				if animated {
-					fmt.Fprintf(os.Stderr, "\r  %s... %s", dep.Status, elapsed)
+					Infof("\r  %s... %s", dep.Status, elapsed)
 				}
 			}
 		}
