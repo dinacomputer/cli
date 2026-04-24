@@ -16,6 +16,15 @@ var (
 var appsDeleteCmd = &cobra.Command{
 	Use:   "delete",
 	Short: "Delete an application",
+	Long: `Permanently delete an application, its deployments, and associated resources.
+
+By default you will be prompted to type the app's name to confirm. Pass --force
+to skip the prompt in scripts.`,
+	Example: `  # interactive — prompts for confirmation
+  dina apps delete -a my-app
+
+  # no prompt (for scripts / CI)
+  dina apps delete -a my-app --force`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := confirmByName("app", appsDeleteApp, appsDeleteForce); err != nil {
 			return err

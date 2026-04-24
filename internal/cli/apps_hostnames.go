@@ -18,7 +18,10 @@ var appsHostnamesAddApp string
 var appsHostnamesAddCmd = &cobra.Command{
 	Use:   "add <hostname>",
 	Short: "Add a custom hostname",
-	Args:  cobra.ExactArgs(1),
+	Long: `Attach a custom hostname to an application. You are responsible for pointing
+the hostname's DNS record (CNAME or A) at the app's Dina URL.`,
+	Example: `  dina apps hostnames add -a my-app api.example.com`,
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := api.NewClient()
 		if err != nil {

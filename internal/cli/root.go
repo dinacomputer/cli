@@ -11,9 +11,12 @@ import (
 var noInput bool
 
 var rootCmd = &cobra.Command{
-	Use:              "dina",
-	Short:            "Dina CLI",
-	Long:             "Dina CLI – deploy applications, manage apps and environment variables, view logs, configure custom hostnames, and install AI agent skills for the Dina platform.",
+	Use:   "dina",
+	Short: "Dina CLI",
+	Long: `Dina CLI – deploy applications, manage apps and environment variables, view logs, configure custom hostnames, and install AI agent skills for the Dina platform.
+
+Report bugs or send feedback with ` + "`dina feedback bug`" + ` / ` + "`dina feedback`" + ` —
+or file issues at https://github.com/dinacomputer/cli/issues.`,
 	PersistentPreRun: runSkillCheck,
 }
 

@@ -33,6 +33,13 @@ type githubAsset struct {
 var updateCmd = &cobra.Command{
 	Use:   "update",
 	Short: "Update dina to the latest version",
+	Long: `Download the latest release binary from GitHub and replace the running dina binary in place.
+
+Releases are fetched from https://github.com/dinacomputer/cli/releases. The
+new binary is extracted to a temp dir and atomically renamed over the current
+binary (on Unix) or swapped via .old/.new shuffling (on Windows).`,
+	Example: `  # check for and install the latest version
+  dina update`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "Checking for updates...")
 		latest, err := fetchLatestRelease()
@@ -118,6 +125,9 @@ var updateCmd = &cobra.Command{
 var checkUpdateCmd = &cobra.Command{
 	Use:   "check-update",
 	Short: "Check if a newer version is available",
+	Long: `Compare the installed version to the latest GitHub release without installing anything.
+
+Exits 0 whether or not an update is available; the output tells you which case you are in.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "Checking for updates...")
 		latest, err := fetchLatestRelease()

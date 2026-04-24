@@ -25,6 +25,17 @@ var deployCmd = &cobra.Command{
 	Use:   "deploy",
 	Short: "Deploy an application",
 	Long:  "Deploy an application to the Dina platform. If --tag is not provided, the current directory is zipped and uploaded as source.",
+	Example: `  # deploy from the current directory's source
+  dina deploy -a my-app
+
+  # deploy a pre-built image
+  dina deploy -a my-app --tag registry.example.com/my-app:v1.2
+
+  # deploy with more replicas and block until the deployment is running
+  dina deploy -a my-app --replicas 3 --wait
+
+  # deploy with build-time arguments
+  dina deploy -a my-app --build-arg NODE_ENV=production --build-arg COMMIT_SHA=$(git rev-parse HEAD)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := api.NewClient()
 		if err != nil {

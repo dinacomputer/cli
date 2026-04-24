@@ -18,7 +18,16 @@ var appsEnvSetApp string
 var appsEnvSetCmd = &cobra.Command{
 	Use:   "set KEY=VALUE [KEY=VALUE ...]",
 	Short: "Set environment variables",
-	Args:  cobra.MinimumNArgs(1),
+	Long: `Set one or more environment variables on an application. Existing variables
+with the same name are replaced; other variables are left untouched.
+
+Changes take effect on the next deployment.`,
+	Example: `  # set a single variable
+  dina apps env set -a my-app DATABASE_URL=postgres://localhost/mydb
+
+  # set multiple at once
+  dina apps env set -a my-app PORT=8080 NODE_ENV=production LOG_LEVEL=info`,
+	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		vars := make(map[string]string, len(args))
 		for _, arg := range args {

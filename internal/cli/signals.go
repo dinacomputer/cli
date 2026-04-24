@@ -27,6 +27,15 @@ var bugCmd = &cobra.Command{
 	Use:   "bug",
 	Short: "Submit a bug report",
 	Long:  "Submit a bug report to the Sokkel Signals API. Authentication is optional — if you are logged in, the submitter identity is recorded.",
+	Example: `  # interactive — prompts for title, description, severity
+  dina feedback bug
+
+  # non-interactive with context from a file
+  dina feedback bug \
+    --title "deploy --wait hangs on failed builds" \
+    --description "Expected exit 1 on build_failed; the process stalled for 10m" \
+    --severity high \
+    --context-file ./build.log`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx, err := loadContext(bugContext, bugContextFile)
 		if err != nil {
@@ -97,9 +106,10 @@ var (
 )
 
 var featureCmd = &cobra.Command{
-	Use:   "feature",
-	Short: "Submit a feature request",
-	Long:  "Submit a feature request to the Sokkel Signals API.",
+	Use:     "feature",
+	Short:   "Submit a feature request",
+	Long:    "Submit a feature request to the Sokkel Signals API.",
+	Example: `  dina feedback feature --title "Support PATCH on hostnames" --description "..."`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		title := featureTitle
 		desc := featureDescription
@@ -152,7 +162,12 @@ var (
 var feedbackCmd = &cobra.Command{
 	Use:   "feedback",
 	Short: "Submit general feedback",
-	Long:  "Submit general feedback to the Sokkel Signals API.",
+	Long: `Submit general feedback to the Sokkel Signals API.
+
+For bug reports, use ` + "`dina feedback bug`" + `. For feature requests, use
+` + "`dina feedback feature`" + `. Without a subcommand, this command submits an
+open-ended message with an optional 1-5 rating.`,
+	Example: `  dina feedback --message "The new error messages are much clearer, thanks!" --rating 5`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		message := feedbackMessage
 		ratingStr := ""
