@@ -118,18 +118,24 @@ func (c *Client) bearerToken() (string, error) {
 func (c *Client) newRequest(method, path string, body any) (*http.Request, error) {
 	url := c.BaseURL + path
 
-	var r io.Reader
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		return nil, err
+	}
 	if body != nil {
 		b, err := json.Marshal(body)
 		if err != nil {
 			return nil, err
 		}
-		r = bytes.NewReader(b)
-	}
-
-	req, err := http.NewRequest(method, url, r)
-	if err != nil {
-		return nil, err
+		// Setting GetBody lets us replay this request when an auto-refresh
+		// retry kicks in after a 401 — the standard library uses the same
+		// hook for redirect handling.
+		req.Body = io.NopCloser(bytes.NewReader(b))
+		req.ContentLength = int64(len(b))
+		req.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(b)), nil
+		}
+		req.Header.Set("Content-Type", "application/json")
 	}
 	tok, err := c.bearerToken()
 	if err != nil {
@@ -137,24 +143,24 @@ func (c *Client) newRequest(method, path string, body any) (*http.Request, error
 	}
 	req.Header.Set("Authorization", "Bearer "+tok)
 	req.Header.Set("User-Agent", UserAgent)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
 	return req, nil
 }
 
 func (c *Client) do(req *http.Request, out any) error {
-	if Debug {
-		fmt.Fprintf(os.Stderr, "DEBUG: %s %s\n", req.Method, req.URL)
-	}
-	resp, err := c.http.Do(req)
+	resp, err := c.send(req)
 	if err != nil {
-		return fmt.Errorf("could not reach %s — check your connection or set %s: %w", req.URL.Host, envBaseURL, err)
+		return err
+	}
+
+	// If the server rejected the bearer token, force a refresh and replay
+	// once before surfacing the 401. Catches expired access tokens that the
+	// client thought were still valid (clock skew, server-side rotation).
+	if resp.StatusCode == http.StatusUnauthorized && c.canReplay(req) {
+		if newResp, ok := c.retryWithFreshAuth(req, resp); ok {
+			resp = newResp
+		}
 	}
 	defer resp.Body.Close()
-	if Debug {
-		fmt.Fprintf(os.Stderr, "DEBUG: <- %d %s\n", resp.StatusCode, resp.Status)
-	}
 
 	if resp.StatusCode >= 400 {
 		var apiErr ErrorModel
@@ -166,6 +172,70 @@ func (c *Client) do(req *http.Request, out any) error {
 		return json.NewDecoder(resp.Body).Decode(out)
 	}
 	return nil
+}
+
+// send issues req and writes a debug log line if --debug is on.
+func (c *Client) send(req *http.Request) (*http.Response, error) {
+	if Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: %s %s\n", req.Method, req.URL)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("could not reach %s — check your connection or set %s: %w", req.URL.Host, envBaseURL, err)
+	}
+	if Debug {
+		fmt.Fprintf(os.Stderr, "DEBUG: <- %d %s\n", resp.StatusCode, resp.Status)
+	}
+	return resp, nil
+}
+
+// canReplay reports whether this request can be re-sent. Requires both a
+// refreshable credential set and (if there is a body) a way to rewind it.
+func (c *Client) canReplay(req *http.Request) bool {
+	if c.creds == nil || c.creds.RefreshToken == "" {
+		return false
+	}
+	if req.Body != nil && req.GetBody == nil {
+		return false
+	}
+	return true
+}
+
+// retryWithFreshAuth forces a token refresh and replays req. On success
+// returns the new response and true; the caller should use the new response
+// for subsequent decoding. On any failure it returns the original response
+// untouched and false, leaving the caller's normal 4xx handling to surface
+// the upstream error.
+func (c *Client) retryWithFreshAuth(req *http.Request, original *http.Response) (*http.Response, bool) {
+	refreshed, err := auth.RefreshAccessToken(c.creds)
+	if err != nil {
+		return original, false
+	}
+	c.creds = refreshed
+
+	tok, err := c.bearerToken()
+	if err != nil {
+		return original, false
+	}
+	req.Header.Set("Authorization", "Bearer "+tok)
+
+	if req.GetBody != nil {
+		body, err := req.GetBody()
+		if err != nil {
+			return original, false
+		}
+		req.Body = body
+	}
+
+	if Debug {
+		fmt.Fprintln(os.Stderr, "DEBUG: 401 — refreshed token and replaying")
+	}
+	newResp, err := c.send(req)
+	if err != nil {
+		return original, false
+	}
+	original.Body.Close()
+	return newResp, true
 }
 
 // wrapHTTPError turns a non-2xx API response into a message that tells the
