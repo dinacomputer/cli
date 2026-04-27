@@ -34,6 +34,11 @@ type Result struct {
 	// typically the command the user should run to resolve it.
 	FixHint string
 
+	// AfterFix is displayed after a successful auto-repair. Use this to tell
+	// the user about any out-of-band step the fix can't do itself (e.g.,
+	// "restart your editor").
+	AfterFix string
+
 	// fix repairs the issue in place, if possible. nil means the check cannot
 	// auto-repair (the FixHint is what the user must do).
 	fix func() error

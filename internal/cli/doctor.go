@@ -46,6 +46,9 @@ var doctorCmd = &cobra.Command{
 				continue
 			}
 			fmt.Fprintln(os.Stderr, "fixed")
+			if r.AfterFix != "" {
+				fmt.Fprintf(os.Stderr, "                       → %s\n", color.Bold(r.AfterFix))
+			}
 		}
 
 		fmt.Fprintln(os.Stderr, "\nRe-checking...")

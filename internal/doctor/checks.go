@@ -92,11 +92,17 @@ func diagnoseSkills(cliVersion string) Result {
 
 	fix := func() error { return fixSkills(outdated, missing) }
 
+	afterFix := ""
+	if len(outdated) > 0 {
+		afterFix = "Restart your AI agent (or open a new Claude Code / Cursor session) to reload the updated skill."
+	}
+
 	return Result{
-		Status:  StatusWarn,
-		Summary: summary,
-		Details: details,
-		fix:     fix,
+		Status:   StatusWarn,
+		Summary:  summary,
+		Details:  details,
+		AfterFix: afterFix,
+		fix:      fix,
 	}
 }
 
