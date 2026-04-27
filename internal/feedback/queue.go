@@ -142,6 +142,21 @@ func Remove(id string) error {
 	return err
 }
 
+// Clear deletes every queued item. Returns the number of items removed and
+// any error encountered while removing. Stops at the first error.
+func Clear() (int, error) {
+	items, err := List()
+	if err != nil {
+		return 0, err
+	}
+	for i, item := range items {
+		if err := Remove(item.ID); err != nil {
+			return i, err
+		}
+	}
+	return len(items), nil
+}
+
 // Submit retries one queued item via the given API client. On success the
 // item is removed from the queue.
 func Submit(client *api.Client, item Item) (*api.SubmitResponseBody, error) {
