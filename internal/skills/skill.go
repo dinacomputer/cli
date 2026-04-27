@@ -176,6 +176,8 @@ Bug report flags: ` + "`--title`" + `, ` + "`--description`" + `, ` + "`--severi
 
 For non-interactive use, supply all required flags and pass ` + "`--no-input`" + `. The server returns a submission ID on stdout — capture it if the user wants a reference.
 
+If a submission can't reach the server (offline, server down, not authenticated for ` + "`feature`" + `/general feedback), the body is **stored locally** under ` + "`~/.config/dina/feedback-queue/`" + ` so it isn't lost. ` + "`dina doctor`" + ` reports any pending items, and ` + "`dina doctor --fix`" + ` retries them and removes those that succeed. Don't tell the user "submission failed, please retry" — instead point them at ` + "`dina doctor --fix`" + ` once the underlying issue (e.g. login, network) is resolved.
+
 ### Other
 
 ` + "```bash" + `

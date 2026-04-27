@@ -13,6 +13,7 @@ import (
 	"github.com/dinacomputer/cli/internal/api"
 	"github.com/dinacomputer/cli/internal/auth"
 	"github.com/dinacomputer/cli/internal/config"
+	"github.com/dinacomputer/cli/internal/feedback"
 	"github.com/dinacomputer/cli/internal/skills"
 )
 
@@ -22,6 +23,7 @@ func DefaultChecks(cliVersion string) []Check {
 	return []Check{
 		{Name: "authentication", Diagnose: diagnoseAuth},
 		{Name: "installed skills", Diagnose: func() Result { return diagnoseSkills(cliVersion) }},
+		{Name: "pending feedback", Diagnose: diagnosePendingFeedback},
 		{Name: "CLI version", Diagnose: func() Result { return diagnoseUpdate(cliVersion) }},
 	}
 }
@@ -148,6 +150,60 @@ func fixSkills(outdated, missing []config.InstalledSkill) error {
 	cfg.Skills = updated
 	cfg.LastSkillCheck = time.Now()
 	return config.Save(cfg)
+}
+
+// --- pending feedback ---
+
+func diagnosePendingFeedback() Result {
+	items, err := feedback.List()
+	if err != nil {
+		return Result{Status: StatusWarn, Summary: "could not read queue", Details: []string{err.Error()}}
+	}
+	if len(items) == 0 {
+		return Result{Status: StatusOK, Summary: "no pending submissions"}
+	}
+
+	details := make([]string, 0, len(items))
+	for _, it := range items {
+		age := time.Since(it.QueuedAt).Truncate(time.Second)
+		details = append(details, fmt.Sprintf("%s queued %s ago (%s)", it.Kind, age, it.ID))
+	}
+	return Result{
+		Status:  StatusWarn,
+		Summary: fmt.Sprintf("%d pending submission(s) — will retry on `doctor --fix`", len(items)),
+		Details: details,
+		fix:     retryPendingFeedback,
+	}
+}
+
+// retryPendingFeedback re-attempts every queued item. If at least one item
+// is delivered the fix is reported as successful; otherwise the first error
+// is returned so the user sees what's still wrong (e.g. "not authenticated").
+func retryPendingFeedback() error {
+	items, err := feedback.List()
+	if err != nil {
+		return err
+	}
+	if len(items) == 0 {
+		return nil
+	}
+	client := api.NewAnonymousClient()
+
+	succeeded := 0
+	var firstErr error
+	for _, it := range items {
+		if _, err := feedback.Submit(client, it); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		succeeded++
+	}
+	if succeeded == 0 {
+		return firstErr
+	}
+	return nil
 }
 
 // --- CLI version ---

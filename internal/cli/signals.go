@@ -10,6 +10,7 @@ import (
 
 	"github.com/charmbracelet/huh"
 	"github.com/dinacomputer/cli/internal/api"
+	"github.com/dinacomputer/cli/internal/feedback"
 	"github.com/dinacomputer/cli/internal/term"
 	"github.com/spf13/cobra"
 )
@@ -83,8 +84,7 @@ var bugCmd = &cobra.Command{
 			return fmt.Errorf("invalid severity %q: must be low, medium, or high", severity)
 		}
 
-		client := api.NewAnonymousClient()
-		resp, err := client.SubmitBug(api.BugBody{
+		body := api.BugBody{
 			Product:     signalsProduct,
 			Title:       title,
 			Description: desc,
@@ -92,9 +92,11 @@ var bugCmd = &cobra.Command{
 			OS:          fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
 			Version:     Version,
 			Context:     ctx,
-		})
+		}
+		client := api.NewAnonymousClient()
+		resp, err := client.SubmitBug(body)
 		if err != nil {
-			return err
+			return queueOnFailure(feedback.KindBug, body, err)
 		}
 		fmt.Printf("Bug report submitted (id: %s)\n", resp.ID)
 		return nil
@@ -138,17 +140,15 @@ var featureCmd = &cobra.Command{
 			}
 		}
 
-		client, err := api.NewClient()
-		if err != nil {
-			return err
-		}
-		resp, err := client.SubmitFeatureRequest(api.FeatureRequestBody{
+		body := api.FeatureRequestBody{
 			Product:     signalsProduct,
 			Title:       title,
 			Description: desc,
-		})
+		}
+		client := api.NewAnonymousClient()
+		resp, err := client.SubmitFeatureRequest(body)
 		if err != nil {
-			return err
+			return queueOnFailure(feedback.KindFeature, body, err)
 		}
 		fmt.Printf("Feature request submitted (id: %s)\n", resp.ID)
 		return nil
@@ -215,21 +215,30 @@ open-ended message with an optional 1-5 rating.`,
 			rating = r
 		}
 
-		client, err := api.NewClient()
-		if err != nil {
-			return err
-		}
-		resp, err := client.SubmitFeedback(api.FeedbackBody{
+		body := api.FeedbackBody{
 			Product: signalsProduct,
 			Message: message,
 			Rating:  rating,
-		})
+		}
+		client := api.NewAnonymousClient()
+		resp, err := client.SubmitFeedback(body)
 		if err != nil {
-			return err
+			return queueOnFailure(feedback.KindFeedback, body, err)
 		}
 		fmt.Printf("Feedback submitted (id: %s)\n", resp.ID)
 		return nil
 	},
+}
+
+// queueOnFailure stashes a feedback body locally for later retry and surfaces
+// the original submission error along with retry instructions.
+func queueOnFailure(kind feedback.Kind, body any, submitErr error) error {
+	if qErr := feedback.Enqueue(kind, body); qErr != nil {
+		return fmt.Errorf("submit failed: %w; also failed to queue locally: %v", submitErr, qErr)
+	}
+	fmt.Fprintln(os.Stderr, "Submission failed — queued locally for later retry.")
+	fmt.Fprintln(os.Stderr, "Run `dina doctor --fix` after the underlying issue is resolved.")
+	return submitErr
 }
 
 func loadContext(inline, path string) (string, error) {
