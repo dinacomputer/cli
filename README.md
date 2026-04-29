@@ -28,6 +28,19 @@ To install a specific version:
 VERSION=0.1.0 curl -sSL https://raw.githubusercontent.com/dinacomputer/cli/main/install.sh | sh
 ```
 
+### PowerShell (Windows)
+
+```powershell
+irm https://raw.githubusercontent.com/dinacomputer/cli/main/install.ps1 | iex
+```
+
+To install a specific version or to a custom directory, set `$env:VERSION` or
+`$env:INSTALL_DIR` before piping:
+
+```powershell
+$env:VERSION = '0.1.0'; irm https://raw.githubusercontent.com/dinacomputer/cli/main/install.ps1 | iex
+```
+
 ### Nix
 
 ```sh
