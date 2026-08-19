@@ -113,6 +113,27 @@ func (c *Client) bearerToken() (string, error) {
 	return c.creds.AccessToken, nil
 }
 
+// AccessToken returns the current session token and its expiry, refreshing if
+// needed. Used by the clusters exec credential plugin to hand kubectl the same
+// Dina token the CLI uses for /api/v1. A static DINA_API_TOKEN has no known
+// expiry, so Expiry is the zero time in that case.
+func (c *Client) AccessToken() (*SessionToken, error) {
+	if c.token != "" {
+		return &SessionToken{Token: c.token}, nil
+	}
+	if c.creds == nil {
+		return nil, fmt.Errorf("not authenticated — run: dina auth login")
+	}
+	if c.creds.Expired() {
+		refreshed, err := auth.RefreshAccessToken(c.creds)
+		if err != nil {
+			return nil, err
+		}
+		c.creds = refreshed
+	}
+	return &SessionToken{Token: c.creds.AccessToken, Expiry: c.creds.ExpiresAt}, nil
+}
+
 // ---------- request helpers ----------
 
 func (c *Client) newRequest(method, path string, body any) (*http.Request, error) {

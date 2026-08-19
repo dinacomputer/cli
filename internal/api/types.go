@@ -124,6 +124,35 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+// ---------- Clusters ----------
+
+type Cluster struct {
+	ID                string    `json:"id"`
+	Name              string    `json:"name"`
+	DisplayName       string    `json:"display_name,omitempty"`
+	Region            string    `json:"region,omitempty"`
+	Status            string    `json:"status"`
+	KubernetesVersion string    `json:"kubernetes_version,omitempty"`
+	// Endpoint and CACertificate are only populated by GetCluster — the list
+	// endpoint omits them. CACertificate is base64-encoded PEM, ready to drop
+	// into kubeconfig's certificate-authority-data.
+	Endpoint      string    `json:"endpoint,omitempty"`
+	CACertificate string    `json:"ca_certificate,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type ListClustersOutput struct {
+	Clusters []Cluster `json:"clusters"`
+}
+
+// SessionToken is the caller's current Dina access token and its expiry. The
+// clusters exec credential plugin hands this to kubectl, which authenticates to
+// Dina's cluster proxy with the same token the CLI uses for /api/v1.
+type SessionToken struct {
+	Token  string
+	Expiry time.Time
+}
+
 // ---------- Signals ----------
 
 type BugBody struct {
