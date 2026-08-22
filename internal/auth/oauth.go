@@ -38,8 +38,18 @@ type tokenResponse struct {
 func Login() (*Credentials, error) {
 	apiBase := ResolveAPIBase()
 
-	issuer, err := DiscoverIssuer(apiBase)
-	if err != nil {
+	// RFC 9728 metadata gives us both the issuer and the resource identifier the
+	// API's tokens must be audience-bound to. The resource has to be requested
+	// at authorize time (RFC 8707); without it the issuer mints a token the API
+	// rejects with insufficient_scope.
+	var issuer, resource string
+	if pr, err := DiscoverProtectedResource(apiBase); err == nil && pr != nil {
+		if len(pr.AuthorizationServers) > 0 {
+			issuer = strings.TrimRight(pr.AuthorizationServers[0], "/")
+		}
+		resource = pr.Resource
+	}
+	if issuer == "" {
 		issuer = legacyIssuer
 	}
 
@@ -47,11 +57,11 @@ func Login() (*Credentials, error) {
 
 	oidcCfg, err := DiscoverOIDC(issuer)
 	if err != nil {
-		creds, err = PKCELogin(legacyClientID)
+		creds, err = PKCELogin(legacyClientID, resource)
 	} else if oidcCfg != nil && oidcCfg.DeviceAuthorizationEndpoint != "" {
-		creds, err = DeviceLogin(oidcCfg, newClientID)
+		creds, err = DeviceLogin(oidcCfg, newClientID, resource)
 	} else {
-		creds, err = PKCELogin(legacyClientID)
+		creds, err = PKCELogin(legacyClientID, resource)
 	}
 	if err != nil {
 		return nil, err
@@ -67,7 +77,9 @@ func Login() (*Credentials, error) {
 
 // PKCELogin performs the OAuth 2.0 authorization code flow with PKCE.
 // Used as a fallback for servers that don't support the device code grant.
-func PKCELogin(clientID string) (*Credentials, error) {
+// resource, when non-empty, is the RFC 8707 resource indicator that binds the
+// issued token's audience to the target API.
+func PKCELogin(clientID, resource string) (*Credentials, error) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, fmt.Errorf("starting callback server: %w", err)
@@ -92,6 +104,9 @@ func PKCELogin(clientID string) (*Credentials, error) {
 		url.QueryEscape(pkce.Challenge),
 		url.QueryEscape("openid profile offline_access"),
 	)
+	if resource != "" {
+		authURL += "&resource=" + url.QueryEscape(resource)
+	}
 
 	fmt.Fprintln(os.Stderr, "Opening browser to authenticate...")
 	fmt.Fprintf(os.Stderr, "If the browser doesn't open, visit:\n  %s\n\n", authURL)
@@ -139,7 +154,7 @@ func PKCELogin(clientID string) (*Credentials, error) {
 	server.Shutdown(context.Background())
 
 	fmt.Fprintln(os.Stderr, "Exchanging authorization code for tokens...")
-	tok, err := exchangeCode(clientID, code, redirectURI, pkce.Verifier)
+	tok, err := exchangeCode(clientID, code, redirectURI, pkce.Verifier, resource)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +162,7 @@ func PKCELogin(clientID string) (*Credentials, error) {
 	result := &Credentials{
 		ClientID:     clientID,
 		Issuer:       legacyIssuer,
+		Resource:     resource,
 		AccessToken:  tok.AccessToken,
 		RefreshToken: tok.RefreshToken,
 		ExpiresAt:    time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
@@ -169,6 +185,10 @@ func RefreshAccessToken(creds *Credentials) (*Credentials, error) {
 		"grant_type":    {"refresh_token"},
 		"client_id":     {creds.ClientID},
 		"refresh_token": {creds.RefreshToken},
+	}
+	// Keep the refreshed token audience-bound to the same API (RFC 8707).
+	if creds.Resource != "" {
+		data.Set("resource", creds.Resource)
 	}
 
 	resp, err := http.PostForm(tokenURL, data)
@@ -208,13 +228,16 @@ func resolveTokenURL(issuer string) string {
 	return legacyTokenURL
 }
 
-func exchangeCode(clientID, code, redirectURI, codeVerifier string) (*tokenResponse, error) {
+func exchangeCode(clientID, code, redirectURI, codeVerifier, resource string) (*tokenResponse, error) {
 	data := url.Values{
 		"grant_type":    {"authorization_code"},
 		"client_id":     {clientID},
 		"code":          {code},
 		"redirect_uri":  {redirectURI},
 		"code_verifier": {codeVerifier},
+	}
+	if resource != "" {
+		data.Set("resource", resource)
 	}
 
 	resp, err := http.PostForm(legacyTokenURL, data)

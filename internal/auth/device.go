@@ -27,10 +27,16 @@ type deviceTokenError struct {
 }
 
 // DeviceLogin performs the OAuth 2.0 Device Authorization Grant (RFC 8628).
-func DeviceLogin(cfg *OIDCConfig, clientID string) (*Credentials, error) {
+// resource, when non-empty, is the RFC 8707 resource indicator that binds the
+// issued token's audience to the target API. It must be requested here at
+// device-authorize time; the issuer refuses to add it later at /token.
+func DeviceLogin(cfg *OIDCConfig, clientID, resource string) (*Credentials, error) {
 	data := url.Values{
 		"client_id": {clientID},
 		"scope":     {"openid profile email offline_access"},
+	}
+	if resource != "" {
+		data.Set("resource", resource)
 	}
 
 	resp, err := http.PostForm(cfg.DeviceAuthorizationEndpoint, data)
@@ -71,7 +77,7 @@ func DeviceLogin(cfg *OIDCConfig, clientID string) (*Credentials, error) {
 			return nil, fmt.Errorf("device code expired — please try again")
 		}
 
-		tok, retry, err := pollDeviceToken(cfg.TokenEndpoint, clientID, dar.DeviceCode)
+		tok, retry, err := pollDeviceToken(cfg.TokenEndpoint, clientID, dar.DeviceCode, resource)
 		if err != nil {
 			return nil, err
 		}
@@ -86,6 +92,7 @@ func DeviceLogin(cfg *OIDCConfig, clientID string) (*Credentials, error) {
 		result := &Credentials{
 			ClientID:     clientID,
 			Issuer:       cfg.Issuer,
+			Resource:     resource,
 			AccessToken:  tok.AccessToken,
 			RefreshToken: tok.RefreshToken,
 			ExpiresAt:    time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
@@ -100,11 +107,14 @@ func DeviceLogin(cfg *OIDCConfig, clientID string) (*Credentials, error) {
 // pollDeviceToken makes a single poll request to the token endpoint.
 // Returns (token, "", nil) on success, (nil, retryReason, nil) if polling should continue,
 // or (nil, "", error) on fatal errors.
-func pollDeviceToken(tokenEndpoint, clientID, deviceCode string) (*tokenResponse, string, error) {
+func pollDeviceToken(tokenEndpoint, clientID, deviceCode, resource string) (*tokenResponse, string, error) {
 	data := url.Values{
 		"grant_type":  {"urn:ietf:params:oauth:grant-type:device_code"},
 		"client_id":   {clientID},
 		"device_code": {deviceCode},
+	}
+	if resource != "" {
+		data.Set("resource", resource)
 	}
 
 	resp, err := http.PostForm(tokenEndpoint, data)

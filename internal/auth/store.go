@@ -16,6 +16,10 @@ type Credentials struct {
 	ClientSecret string    `json:"client_secret,omitempty"`
 	Issuer       string    `json:"issuer,omitempty"`
 	APIBaseURL   string    `json:"api_base_url,omitempty"`
+	// Resource is the RFC 8707 resource indicator the tokens are bound to
+	// (the API's identifier from its RFC 9728 metadata). Replayed on refresh
+	// so the new access token stays audience-bound to the same API.
+	Resource     string    `json:"resource,omitempty"`
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
 	ExpiresAt    time.Time `json:"expires_at"`
