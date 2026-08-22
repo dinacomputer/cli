@@ -145,6 +145,77 @@ type ListClustersOutput struct {
 	Clusters []Cluster `json:"clusters"`
 }
 
+// ---------- Organizations ----------
+
+type Organization struct {
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	IdpOrgID  string    `json:"idp_org_id,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ListOrganizationsOutput struct {
+	Organizations []Organization `json:"organizations"`
+}
+
+// ---------- Federations (workload identity) ----------
+
+// Federation registers an external OIDC issuer (a CI provider) whose tokens can
+// be exchanged for short-lived Dina credentials via workload identity federation.
+type Federation struct {
+	ID             string    `json:"id"`
+	OrganizationID string    `json:"organization_id"`
+	ClientID       string    `json:"client_id"`
+	Name           string    `json:"name"`
+	Issuer         string    `json:"issuer"`
+	Audiences      []string  `json:"audiences"`
+	SubjectClaim   string    `json:"subject_claim"`
+	Disabled       bool      `json:"disabled"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+type ListFederationsOutput struct {
+	Federations []Federation `json:"federations"`
+}
+
+type CreateFederationInput struct {
+	Name         string   `json:"name"`
+	Issuer       string   `json:"issuer"`
+	Audiences    []string `json:"audiences,omitempty"`
+	SubjectClaim string   `json:"subject_claim,omitempty"`
+}
+
+type UpdateFederationInput struct {
+	Name         string   `json:"name,omitempty"`
+	Audiences    []string `json:"audiences,omitempty"`
+	SubjectClaim string   `json:"subject_claim,omitempty"`
+	Disabled     *bool    `json:"disabled,omitempty"`
+}
+
+// Mapping binds a federation's token claims to a set of granted scopes. All
+// MatchClaims must match (glob-aware) for the mapping's scopes to apply.
+type Mapping struct {
+	ID           string            `json:"id"`
+	FederationID string            `json:"federation_id"`
+	Name         string            `json:"name"`
+	MatchClaims  map[string]string `json:"match_claims"`
+	Scopes       []string          `json:"scopes"`
+	CreatedAt    time.Time         `json:"created_at"`
+	UpdatedAt    time.Time         `json:"updated_at"`
+}
+
+type ListMappingsOutput struct {
+	Mappings []Mapping `json:"mappings"`
+}
+
+type CreateMappingInput struct {
+	Name        string            `json:"name,omitempty"`
+	MatchClaims map[string]string `json:"match_claims,omitempty"`
+	Scopes      []string          `json:"scopes,omitempty"`
+}
+
 // SessionToken is the caller's current Dina access token and its expiry. The
 // clusters exec credential plugin hands this to kubectl, which authenticates to
 // Dina's cluster proxy with the same token the CLI uses for /api/v1.

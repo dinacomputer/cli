@@ -15,8 +15,9 @@ import (
 // provider.
 type FederatedOptions struct {
 	// Audience is the OIDC audience to request for the subject token. When
-	// empty it defaults to the Dina issuer, so the minted token's `aud` claim
-	// is bound to Dina and can't be replayed against another service.
+	// empty it defaults to the Dina API resource (https://dina.sh) — the value
+	// the federation validates the token's `aud` against. Pinning `aud` to the
+	// resource binds the token to Dina so it can't be replayed elsewhere.
 	Audience string
 	// Token is an explicit OIDC subject token, bypassing provider detection.
 	Token string
@@ -39,7 +40,13 @@ func FederatedLogin(opts FederatedOptions) (*Credentials, error) {
 
 	audience := opts.Audience
 	if audience == "" {
-		audience = issuer
+		// The federation validates the CI token's `aud` against the API
+		// resource (https://dina.sh), which defaults to the server origin when
+		// a federation lists no explicit audiences — not the auth issuer.
+		audience = ResolveResourceAudience(apiBase)
+		if audience == "" {
+			audience = issuer
+		}
 	}
 
 	subjectToken, err := obtainOIDCToken(opts, audience)
@@ -149,13 +156,28 @@ func exchangeFederatedToken(issuer, subjectToken, audience string) (*tokenRespon
 		data.Set("audience", audience)
 	}
 
-	resp, err := http.PostForm(tokenURL, data)
+	resp, err := discoveryClient.PostForm(tokenURL, data)
 	if err != nil {
 		return nil, fmt.Errorf("token exchange failed: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("token exchange rejected with status %d — the CI identity may not be granted access", resp.StatusCode)
+		// RFC 6749 error responses carry error / error_description in the body;
+		// surfacing them tells the user why (bad aud, untrusted iss, no mapping)
+		// instead of just an opaque status code.
+		var oauthErr struct {
+			Error       string `json:"error"`
+			Description string `json:"error_description"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&oauthErr)
+		switch {
+		case oauthErr.Description != "":
+			return nil, fmt.Errorf("token exchange rejected (%d): %s — %s", resp.StatusCode, oauthErr.Error, oauthErr.Description)
+		case oauthErr.Error != "":
+			return nil, fmt.Errorf("token exchange rejected (%d): %s", resp.StatusCode, oauthErr.Error)
+		default:
+			return nil, fmt.Errorf("token exchange rejected with status %d — the CI identity may not be granted access", resp.StatusCode)
+		}
 	}
 
 	var tok tokenResponse

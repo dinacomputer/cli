@@ -28,42 +28,69 @@ type OIDCConfig struct {
 
 // ProtectedResource holds the response from RFC 9728 /.well-known/oauth-protected-resource.
 type ProtectedResource struct {
+	// Resource is the resource identifier clients must use as the audience of
+	// tokens minted for this API — https://dina.sh, not the auth issuer.
+	Resource             string   `json:"resource"`
 	AuthorizationServers []string `json:"authorization_servers"`
 }
 
 var discoveryClient = &http.Client{Timeout: 10 * time.Second}
 
-// DiscoverIssuer fetches /.well-known/oauth-protected-resource from the API host
-// and returns the first authorization server (the issuer).
-func DiscoverIssuer(apiBaseURL string) (string, error) {
+// DiscoverProtectedResource fetches RFC 9728 /.well-known/oauth-protected-resource
+// from the API host.
+func DiscoverProtectedResource(apiBaseURL string) (*ProtectedResource, error) {
 	u, err := url.Parse(apiBaseURL)
 	if err != nil {
-		return "", fmt.Errorf("parsing API base URL: %w", err)
+		return nil, fmt.Errorf("parsing API base URL: %w", err)
 	}
 
 	wellKnown := fmt.Sprintf("%s://%s/.well-known/oauth-protected-resource", u.Scheme, u.Host)
 	resp, err := discoveryClient.Get(wellKnown)
 	if err != nil {
-		return "", fmt.Errorf("fetching protected resource metadata: %w", err)
+		return nil, fmt.Errorf("fetching protected resource metadata: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("protected resource metadata not found at %s", wellKnown)
+		return nil, fmt.Errorf("protected resource metadata not found at %s", wellKnown)
 	}
 	if resp.StatusCode >= 400 {
-		return "", fmt.Errorf("protected resource metadata returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("protected resource metadata returned status %d", resp.StatusCode)
 	}
 
 	var pr ProtectedResource
 	if err := json.NewDecoder(resp.Body).Decode(&pr); err != nil {
-		return "", fmt.Errorf("decoding protected resource metadata: %w", err)
+		return nil, fmt.Errorf("decoding protected resource metadata: %w", err)
+	}
+	return &pr, nil
+}
+
+// DiscoverIssuer fetches /.well-known/oauth-protected-resource from the API host
+// and returns the first authorization server (the issuer).
+func DiscoverIssuer(apiBaseURL string) (string, error) {
+	pr, err := DiscoverProtectedResource(apiBaseURL)
+	if err != nil {
+		return "", err
 	}
 	if len(pr.AuthorizationServers) == 0 {
 		return "", fmt.Errorf("no authorization servers in protected resource metadata")
 	}
-
 	return strings.TrimRight(pr.AuthorizationServers[0], "/"), nil
+}
+
+// ResolveResourceAudience returns the resource identifier the API expects as the
+// audience of a federated token — the `resource` from RFC 9728 metadata, falling
+// back to the API base origin. This is what the federation validates the CI
+// token's `aud` against; it is the API resource (https://dina.sh), not the auth
+// issuer (https://id.sokkel.io).
+func ResolveResourceAudience(apiBaseURL string) string {
+	if pr, err := DiscoverProtectedResource(apiBaseURL); err == nil && pr.Resource != "" {
+		return strings.TrimRight(pr.Resource, "/")
+	}
+	if u, err := url.Parse(apiBaseURL); err == nil && u.Host != "" {
+		return u.Scheme + "://" + u.Host
+	}
+	return ""
 }
 
 var (
