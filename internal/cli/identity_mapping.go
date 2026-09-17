@@ -22,7 +22,7 @@ var identityMappingListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		orgID, err := resolveOrgID(client)
+		orgID, err := resolveOrgID(client, identityOrg)
 		if err != nil {
 			return err
 		}
@@ -74,7 +74,7 @@ All --match conditions must match (glob-aware) for the scopes to apply.`,
 		if err != nil {
 			return err
 		}
-		orgID, err := resolveOrgID(client)
+		orgID, err := resolveOrgID(client, identityOrg)
 		if err != nil {
 			return err
 		}
@@ -108,7 +108,7 @@ var identityMappingDeleteCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		orgID, err := resolveOrgID(client)
+		orgID, err := resolveOrgID(client, identityOrg)
 		if err != nil {
 			return err
 		}

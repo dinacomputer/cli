@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -274,8 +275,14 @@ func wrapHTTPError(req *http.Request, resp *http.Response, apiErr ErrorModel) er
 		}
 		return fmt.Errorf("forbidden — your account may not have permission for this operation")
 	case http.StatusNotFound:
-		if name, ok := appNameFromPath(path); ok {
+		if name, ok := pathSegmentAfter(path, "apps"); ok {
 			return fmt.Errorf("no app named %q — list apps with: dina apps list", name)
+		}
+		if name, ok := pathSegmentAfter(path, "buckets"); ok {
+			return fmt.Errorf("no bucket named %q — list buckets with: dina storage buckets list", name)
+		}
+		if name, ok := pathSegmentAfter(path, "storage-keys"); ok {
+			return fmt.Errorf("no storage key named %q — list keys with: dina storage keys list", name)
 		}
 		if detail != "" {
 			return fmt.Errorf("not found: %s", detail)
@@ -298,14 +305,18 @@ func wrapHTTPError(req *http.Request, resp *http.Response, apiErr ErrorModel) er
 	return fmt.Errorf("API error %d", resp.StatusCode)
 }
 
-// appNameFromPath pulls the <name> out of any /.../apps/<name>/... path so
-// 404s can tell the user which app was missing. Handles both /apps/foo and
+// pathSegmentAfter pulls the segment following key out of a request path, so a
+// 404 can name the resource that was missing. Handles both /apps/foo and
 // /api/v1/apps/foo.
-func appNameFromPath(p string) (string, bool) {
+func pathSegmentAfter(p, key string) (string, bool) {
 	parts := strings.Split(p, "/")
 	for i, seg := range parts {
-		if seg == "apps" && i+1 < len(parts) && parts[i+1] != "" {
-			return parts[i+1], true
+		if seg == key && i+1 < len(parts) && parts[i+1] != "" {
+			name, err := url.PathUnescape(parts[i+1])
+			if err != nil {
+				name = parts[i+1]
+			}
+			return name, true
 		}
 	}
 	return "", false

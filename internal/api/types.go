@@ -251,3 +251,106 @@ type FeedbackBody struct {
 type SubmitResponseBody struct {
 	ID string `json:"id"`
 }
+
+// ---------- Object storage ----------
+
+// StorageEndpoint is the S3-compatible endpoint a bucket is served from.
+type StorageEndpoint struct {
+	URL       string `json:"url"`
+	Region    string `json:"region"`
+	PathStyle bool   `json:"path_style"`
+}
+
+// StorageUsage is the last observed consumption for a bucket. The backend
+// samples it periodically, so ObservedAt can lag recent writes.
+type StorageUsage struct {
+	Bytes      int64     `json:"bytes"`
+	Objects    int64     `json:"objects"`
+	ObservedAt time.Time `json:"observed_at"`
+}
+
+type Bucket struct {
+	ID        string `json:"id"`
+	OrgID     string `json:"org_id"`
+	BackendID string `json:"backend_id"`
+	Name      string `json:"name"`
+	// PhysicalName is the bucket name on the backend, which is namespaced and
+	// therefore differs from Name. S3 clients must address this one.
+	PhysicalName string          `json:"physical_name"`
+	Status       string          `json:"status"`
+	Public       bool            `json:"public"`
+	PublicURL    string          `json:"public_url,omitempty"`
+	QuotaBytes   int64           `json:"quota_bytes"`
+	QuotaObjects int64           `json:"quota_objects"`
+	Endpoint     StorageEndpoint `json:"endpoint"`
+	Usage        *StorageUsage   `json:"usage,omitempty"`
+	CreatedAt    time.Time       `json:"created_at"`
+	UpdatedAt    time.Time       `json:"updated_at"`
+}
+
+type ListBucketsOutput struct {
+	Buckets []Bucket `json:"buckets"`
+}
+
+type CreateBucketInput struct {
+	Name         string `json:"name"`
+	Backend      string `json:"backend,omitempty"`
+	Public       bool   `json:"public,omitempty"`
+	QuotaBytes   int64  `json:"quota_bytes,omitempty"`
+	QuotaObjects int64  `json:"quota_objects,omitempty"`
+}
+
+// UpdateBucketInput uses pointers throughout so an unset field is omitted
+// rather than sent as a zero value the server would apply.
+type UpdateBucketInput struct {
+	Public       *bool  `json:"public,omitempty"`
+	QuotaBytes   *int64 `json:"quota_bytes,omitempty"`
+	QuotaObjects *int64 `json:"quota_objects,omitempty"`
+}
+
+// StorageGrant is one key's permissions on one bucket.
+type StorageGrant struct {
+	KeyID      string    `json:"key_id"`
+	KeyName    string    `json:"key_name,omitempty"`
+	BucketID   string    `json:"bucket_id"`
+	BucketName string    `json:"bucket_name,omitempty"`
+	Read       bool      `json:"read"`
+	Write      bool      `json:"write"`
+	Owner      bool      `json:"owner"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+// StorageKey is an S3 access key. The secret is returned only by
+// CreateStorageKey and RotateStorageKey — it is never readable afterwards.
+type StorageKey struct {
+	ID          string         `json:"id"`
+	OrgID       string         `json:"org_id"`
+	BackendID   string         `json:"backend_id"`
+	Name        string         `json:"name"`
+	AccessKeyID string         `json:"access_key_id"`
+	Grants      []StorageGrant `json:"grants,omitempty"`
+	ExpiresAt   *time.Time     `json:"expires_at,omitempty"`
+	CreatedAt   time.Time      `json:"created_at"`
+}
+
+type ListStorageKeysOutput struct {
+	Keys []StorageKey `json:"keys"`
+}
+
+type CreateStorageKeyInput struct {
+	Name    string `json:"name"`
+	Backend string `json:"backend,omitempty"`
+}
+
+// IssuedStorageKey carries the one-time secret alongside the key record.
+type IssuedStorageKey struct {
+	Key             StorageKey `json:"key"`
+	SecretAccessKey string     `json:"secret_access_key"`
+}
+
+// SetGrantInput always sends read and write; the API requires both.
+type SetGrantInput struct {
+	Read  bool `json:"read"`
+	Write bool `json:"write"`
+	Owner bool `json:"owner,omitempty"`
+}

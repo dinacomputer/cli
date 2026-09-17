@@ -5,7 +5,7 @@ package skills
 func SkillMD() string {
 	return `---
 name: dina-cli
-description: Deploy applications, manage apps, view logs, set env vars, and configure hostnames on the Dina platform. Use when the user wants to deploy code, check app status, view logs, manage environment variables, configure custom domains, or perform any Dina platform operation.
+description: Deploy applications, manage apps, view logs, set env vars, configure hostnames, and manage S3-compatible object storage on the Dina platform. Use when the user wants to deploy code, check app status, view logs, manage environment variables, configure custom domains, create storage buckets or access keys, or perform any Dina platform operation.
 allowed-tools: Bash(dina *), Bash(dina)
 ---
 
@@ -20,6 +20,7 @@ Dina is a platform-as-a-service (PaaS) for deploying and managing containerized 
 - **View logs**: stream runtime logs and build logs for deployments
 - **Configure environment variables** for your applications
 - **Manage custom hostnames** for your apps
+- **Manage object storage**: S3-compatible buckets and the access keys that reach them
 - **Manage users** (admin operations)
 - **Report bugs and send feedback** to the Sokkel team
 
@@ -147,6 +148,73 @@ dina apps hostnames add -a my-app example.com
 dina apps hostnames remove -a my-app example.com --force
 ` + "```" + `
 
+### Object storage
+
+S3-compatible buckets plus the access keys applications authenticate with. Both
+are scoped to an organization; pass ` + "`--org`" + ` only when the account has more than
+one (the CLI errors and lists them if it can't pick).
+
+` + "```bash" + `
+# buckets
+dina storage buckets list
+dina storage buckets create uploads
+dina storage buckets create assets --public --quota 10GB
+dina storage buckets get uploads
+dina storage buckets update uploads --quota 50GB
+dina storage buckets update assets --public=false
+dina storage buckets delete uploads --force
+
+# access keys
+dina storage keys list
+dina storage keys create my-app
+dina storage keys get my-app
+dina storage keys rotate my-app --force
+dina storage keys delete my-app --force
+
+# grants (a key reaches no bucket until granted)
+dina storage keys grant my-app uploads --read --write
+dina storage keys grant my-app assets --read
+dina storage keys revoke my-app assets --force
+` + "```" + `
+
+**Wiring an app to a bucket** — the full sequence:
+
+` + "```bash" + `
+dina storage buckets create uploads --quota 10GB
+dina storage keys create my-app                      # prints the secret ONCE
+dina storage keys grant my-app uploads --read --write
+dina storage buckets get uploads                     # endpoint, region, real bucket name
+dina apps env set -a my-app \
+  AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
+  S3_ENDPOINT=https://storage.<region>.dina.sh S3_BUCKET=<physical name>
+` + "```" + `
+
+Things that will bite you if you skip them:
+
+- **The secret is shown once.** ` + "`keys create`" + ` and ` + "`keys rotate`" + ` print
+  ` + "`AWS_SECRET_ACCESS_KEY`" + ` on stdout and it is never retrievable again. Capture it
+  in the same step you create the key — with ` + "`-o json`" + ` if you need to parse it — and
+  write it straight into the app's env. Never re-run ` + "`create`" + ` hoping to re-read a
+  secret; that mints a different key.
+- **S3 clients must address the ` + "`physical_name`" + `, not the name you created.** The
+  backend namespaces buckets per account, so ` + "`uploads`" + ` really lives at something like
+  ` + "`your-org-uploads`" + `. Read it from ` + "`dina storage buckets get`" + ` (or ` + "`.physical_name`" + `
+  in JSON). Using the short name gives ` + "`NoSuchBucket`" + `.
+- **Path-style addressing is required.** Set ` + "`--endpoint-url`" + ` plus the client's
+  force-path-style option (` + "`s3ForcePathStyle: true`" + `, ` + "`AWS_S3_FORCE_PATH_STYLE=true`" + `,
+  boto's ` + "`s3={\"addressing_style\": \"path\"}`" + `). Virtual-host style will not resolve.
+- **` + "`--public`" + ` is per bucket, not per object.** It serves *everything* in the bucket
+  anonymously. Never put user data or anything secret in a public bucket.
+- **` + "`rotate`" + ` invalidates the old secret immediately.** Roll the new one out before
+  rotating, not after. Grants survive rotation.
+- **Quotas** accept size suffixes: ` + "`--quota 500MB`" + `, ` + "`10GB`" + `, ` + "`2TB`" + `, or a plain byte
+  count. ` + "`--quota-objects`" + ` caps the object count. Zero means unlimited. Usage figures
+  from ` + "`buckets get`" + ` are sampled periodically, so they lag recent writes.
+
+` + "`buckets delete`" + ` destroys every object in the bucket and prompts for the bucket name;
+` + "`keys delete`" + ` prompts likewise. Both take ` + "`--force`" + ` for scripts. ` + "`list`" + `, ` + "`get`" + `,
+` + "`create`" + `, ` + "`update`" + ` and ` + "`grant`" + ` all support ` + "`-o json`" + `.
+
 ### Users (admin)
 
 ` + "```bash" + `
@@ -207,7 +275,7 @@ dina apps delete -a my-app
 
 These flags work on every command:
 
-- ` + "`-o`" + ` / ` + "`--output`" + ` — output format, ` + "`text`" + ` (default) or ` + "`json`" + `. Use ` + "`-o json`" + ` on ` + "`apps list`" + `, ` + "`apps info`" + `, ` + "`apps deployments`" + `, ` + "`users list`" + `, and ` + "`auth status`" + ` when you need to parse the output. JSON goes to stdout; progress messages stay on stderr so the JSON body is pipeable straight into ` + "`jq`" + `.
+- ` + "`-o`" + ` / ` + "`--output`" + ` — output format, ` + "`text`" + ` (default) or ` + "`json`" + `. Use ` + "`-o json`" + ` on ` + "`apps list`" + `, ` + "`apps info`" + `, ` + "`apps deployments`" + `, ` + "`users list`" + `, ` + "`auth status`" + `, and the ` + "`storage`" + ` commands when you need to parse the output. JSON goes to stdout; progress messages stay on stderr so the JSON body is pipeable straight into ` + "`jq`" + `.
 - ` + "`-q`" + ` / ` + "`--quiet`" + ` — suppress informational stderr lines (` + "`Fetching...`" + `, ` + "`Packaging...`" + `, post-action confirmations).
 - ` + "`--no-input`" + ` — disable interactive prompts; required fields must be supplied as flags. Use this (together with ` + "`--force`" + ` where relevant) when running in scripts.
 - ` + "`--no-color`" + ` — disable ANSI color. Also honors ` + "`NO_COLOR`" + ` and ` + "`TERM=dumb`" + `.

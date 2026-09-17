@@ -1,10 +1,6 @@
 package cli
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/dinacomputer/cli/internal/api"
 	"github.com/spf13/cobra"
 )
 
@@ -35,38 +31,6 @@ var identityMappingCmd = &cobra.Command{
 	Use:     "mapping",
 	Aliases: []string{"mappings", "map"},
 	Short:   "Manage claim-to-scope mappings within a federation",
-}
-
-// resolveOrgID turns the --org flag (id or name) into an organization id. With
-// no flag it returns the caller's organization when they have exactly one,
-// erroring otherwise so the command never guesses.
-func resolveOrgID(client *api.Client) (string, error) {
-	orgs, err := client.ListOrganizations()
-	if err != nil {
-		return "", err
-	}
-	if len(orgs) == 0 {
-		return "", fmt.Errorf("no organizations found for this account")
-	}
-
-	if identityOrg != "" {
-		for _, o := range orgs {
-			if o.ID == identityOrg || strings.EqualFold(o.Name, identityOrg) {
-				return o.ID, nil
-			}
-		}
-		return "", fmt.Errorf("no organization matching %q — list them with: dina identity federation list", identityOrg)
-	}
-
-	if len(orgs) == 1 {
-		return orgs[0].ID, nil
-	}
-
-	names := make([]string, len(orgs))
-	for i, o := range orgs {
-		names[i] = o.Name
-	}
-	return "", fmt.Errorf("multiple organizations — pass --org with one of: %s", strings.Join(names, ", "))
 }
 
 func init() {

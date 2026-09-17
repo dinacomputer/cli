@@ -19,7 +19,7 @@ var identityFederationListCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		orgID, err := resolveOrgID(client)
+		orgID, err := resolveOrgID(client, identityOrg)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ credentials. Add a mapping to grant scopes: dina identity mapping create.`,
 		if err != nil {
 			return err
 		}
-		orgID, err := resolveOrgID(client)
+		orgID, err := resolveOrgID(client, identityOrg)
 		if err != nil {
 			return err
 		}
@@ -104,7 +104,7 @@ var identityFederationGetCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		orgID, err := resolveOrgID(client)
+		orgID, err := resolveOrgID(client, identityOrg)
 		if err != nil {
 			return err
 		}
@@ -155,7 +155,7 @@ var identityFederationUpdateCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		orgID, err := resolveOrgID(client)
+		orgID, err := resolveOrgID(client, identityOrg)
 		if err != nil {
 			return err
 		}
@@ -188,7 +188,7 @@ By default you will be prompted to confirm. Pass --force to skip the prompt.`,
 		if err != nil {
 			return err
 		}
-		orgID, err := resolveOrgID(client)
+		orgID, err := resolveOrgID(client, identityOrg)
 		if err != nil {
 			return err
 		}
