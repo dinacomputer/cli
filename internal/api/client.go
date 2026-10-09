@@ -275,6 +275,12 @@ func wrapHTTPError(req *http.Request, resp *http.Response, apiErr ErrorModel) er
 		}
 		return fmt.Errorf("forbidden — your account may not have permission for this operation")
 	case http.StatusNotFound:
+		// The API's own message is the useful one here: "observability is not
+		// enabled for this organization", "alert not found; it may have
+		// resolved". The path alone cannot tell those apart.
+		if strings.Contains(path, "/observability") && detail != "" {
+			return fmt.Errorf("%s", detail)
+		}
 		if name, ok := pathSegmentAfter(path, "apps"); ok {
 			return fmt.Errorf("no app named %q — list apps with: dina apps list", name)
 		}

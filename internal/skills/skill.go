@@ -5,7 +5,7 @@ package skills
 func SkillMD() string {
 	return `---
 name: dina-cli
-description: Deploy applications, manage apps, view logs, set env vars, configure hostnames, and manage S3-compatible object storage on the Dina platform. Use when the user wants to deploy code, check app status, view logs, manage environment variables, configure custom domains, create storage buckets or access keys, or perform any Dina platform operation.
+description: Deploy applications, manage apps, view logs, set env vars, configure hostnames, manage S3-compatible object storage, and inspect observability data (logs, traces, exceptions, metrics, firing alerts) on the Dina platform. Use when the user wants to deploy code, check app status, view logs, manage environment variables, configure custom domains, create storage buckets or access keys, investigate errors, slow requests or firing alerts, or perform any Dina platform operation.
 allowed-tools: Bash(dina *), Bash(dina)
 ---
 
@@ -21,6 +21,7 @@ Dina is a platform-as-a-service (PaaS) for deploying and managing containerized 
 - **Configure environment variables** for your applications
 - **Manage custom hostnames** for your apps
 - **Manage object storage**: S3-compatible buckets and the access keys that reach them
+- **Investigate production**: firing alerts, exceptions, logs, traces, metrics and service health from the organization's SigNoz instance
 - **Manage users** (admin operations)
 - **Report bugs and send feedback** to the Sokkel team
 
@@ -214,6 +215,68 @@ Things that will bite you if you skip them:
 ` + "`buckets delete`" + ` destroys every object in the bucket and prompts for the bucket name;
 ` + "`keys delete`" + ` prompts likewise. Both take ` + "`--force`" + ` for scripts. ` + "`list`" + `, ` + "`get`" + `,
 ` + "`create`" + `, ` + "`update`" + ` and ` + "`grant`" + ` all support ` + "`-o json`" + `.
+
+### Observability
+
+Read-only access to the organization's SigNoz instance, for orgs where a platform
+operator has enabled it. ` + "`dina obs`" + ` is short for ` + "`dina observability`" + `. Pass
+` + "`--org`" + ` only when the account has more than one organization.
+
+` + "```bash" + `
+dina obs status                                   # enabled? where is the UI?
+
+# what is wrong right now
+dina obs alerts                                   # firing alerts, most severe first
+dina obs alerts show 3f9a                         # rule, history, exceptions, error logs
+dina obs services                                 # rate, error rate, p99 per service
+
+# dig in
+dina obs exceptions --service api --since 24h
+dina obs exceptions show <group-id> --since 24h   # stacktrace + trace id
+dina obs logs --service api --severity error,fatal
+dina obs logs --filter "body CONTAINS 'timeout'" --since 6h
+dina obs traces --service api --errors
+dina obs traces --min-duration 500ms
+dina obs trace <trace-id>                         # span tree
+dina obs operations api                           # slowest endpoints of a service
+
+# resources
+dina obs infra pods --filter "k8s.namespace.name = 'api'"
+dina obs metrics http.server.request.duration --space-agg p99 --group-by service.name
+
+# field names for filters
+dina obs fields --signal logs
+dina obs fields --signal traces --key service.name
+` + "```" + `
+
+**Investigating an alert** — start with ` + "`dina obs alerts`" + `, then
+` + "`dina obs alerts show <fingerprint>`" + ` (a unique prefix is enough). It prints what
+breached and by how much, how often the rule fired in the last 24h against the 24h
+before, and the affected service's exceptions and error logs since shortly before it
+started. Follow a trace id from there with ` + "`dina obs trace`" + `.
+
+Things to know:
+
+- **Filters are a SQL WHERE clause without the WHERE**:
+  ` + "`service.name = 'api' AND http.response.status_code >= 500`" + `. Supported: comparisons,
+  AND/OR/NOT, parentheses, IN, LIKE, ILIKE, CONTAINS, EXISTS, IS [NOT] NULL. Quote
+  strings with single quotes. To search log text use ` + "`body CONTAINS 'x'`" + `; a bare
+  string is rejected.
+- **Field names follow OpenTelemetry**, not other log tools: ` + "`severity_text`" + ` not
+  ` + "`level`" + `, ` + "`body`" + ` not ` + "`message`" + `, ` + "`service.name`" + ` not ` + "`service`" + `. An unknown field is
+  rejected with a suggestion; when unsure, run ` + "`dina obs fields`" + ` first. Prefer the
+  ` + "`--service`" + `, ` + "`--severity`" + `, ` + "`--errors`" + ` and ` + "`--min-duration`" + ` shorthands over writing filters.
+- **Time ranges default to the last hour.** Widen with ` + "`--since 24h`" + ` or ` + "`7d`" + ` before
+  concluding there is nothing. ` + "`--until`" + ` takes an RFC 3339 time.
+- **Logs and traces page**: when more exist, stderr says ` + "`--cursor <c>`" + `; pass it back for
+  older entries.
+- **Read-only.** Alert rules, notification channels and dashboards are managed in the
+  SigNoz UI (` + "`dina obs status`" + ` prints its address). ` + "`dina apps logs`" + ` still shows live
+  pod logs for Dina apps; ` + "`dina obs logs`" + ` searches what was sent to SigNoz.
+- "observability is not enabled for this organization" means a platform operator has
+  to enable it; there is nothing to configure from the CLI.
+
+Every ` + "`dina obs`" + ` command supports ` + "`-o json`" + `.
 
 ### Users (admin)
 
