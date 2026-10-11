@@ -43,6 +43,7 @@ func init() {
 	storageCmd.PersistentFlags().StringVar(&storageOrg, "org", "", "Organization id or name (defaults to your only organization)")
 	storageCmd.AddCommand(storageBucketsCmd)
 	storageCmd.AddCommand(storageKeysCmd)
+	storageCmd.AddCommand(storageRegionsCmd)
 	rootCmd.AddCommand(storageCmd)
 }
 

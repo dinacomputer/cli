@@ -47,7 +47,7 @@ var storageBucketsListCmd = &cobra.Command{
 }
 
 var (
-	bucketCreateBackend      string
+	bucketCreateRegion       string
 	bucketCreatePublic       bool
 	bucketCreateQuota        string
 	bucketCreateQuotaObjects int64
@@ -62,10 +62,13 @@ A new bucket is private and reachable only by keys you grant access to. Pass
 --public to serve every object in it anonymously over HTTP — that applies to the
 whole bucket, not to individual objects, so don't mix private data into it.
 
-Quotas default to the organization's unallocated remainder.`,
+Quotas default to the organization's unallocated remainder. --region places the
+bucket in a storage region opened for the organization (dina storage regions);
+without it the bucket goes to the default region.`,
 	Example: `  dina storage buckets create uploads
   dina storage buckets create assets --public --quota 10GB
-  dina storage buckets create archive --quota 500GB --quota-objects 1000000`,
+  dina storage buckets create archive --quota 500GB --quota-objects 1000000
+  dina storage buckets create eu-data --region p-eu-1`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := ValidateOutput(); err != nil {
@@ -73,7 +76,7 @@ Quotas default to the organization's unallocated remainder.`,
 		}
 		input := api.CreateBucketInput{
 			Name:         args[0],
-			Backend:      bucketCreateBackend,
+			Region:       bucketCreateRegion,
 			Public:       bucketCreatePublic,
 			QuotaObjects: bucketCreateQuotaObjects,
 		}
@@ -258,7 +261,7 @@ func printBucket(b *api.Bucket) {
 }
 
 func init() {
-	storageBucketsCreateCmd.Flags().StringVar(&bucketCreateBackend, "backend", "", "Backend to place the bucket on (omit while only one exists)")
+	storageBucketsCreateCmd.Flags().StringVar(&bucketCreateRegion, "region", "", "Storage region to place the bucket in (see dina storage regions; omit for the default)")
 	storageBucketsCreateCmd.Flags().BoolVar(&bucketCreatePublic, "public", false, "Serve every object in the bucket anonymously")
 	storageBucketsCreateCmd.Flags().StringVar(&bucketCreateQuota, "quota", "", "Size ceiling, e.g. 500MB or 10GB (default: the org's unallocated remainder)")
 	storageBucketsCreateCmd.Flags().Int64Var(&bucketCreateQuotaObjects, "quota-objects", 0, "Object-count ceiling (0 for unlimited)")
