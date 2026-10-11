@@ -133,3 +133,17 @@ func storageKeyPath(orgID, name string) string {
 func grantPath(orgID, keyName, bucket string) string {
 	return storageKeyPath(orgID, keyName) + "/grants/" + url.PathEscape(bucket)
 }
+
+// ListStorageRegions returns the regions opened for the organization, beyond
+// the default placement every organization has.
+func (c *Client) ListStorageRegions(orgID string) ([]StorageRegion, error) {
+	req, err := c.newRequest("GET", "/organizations/"+orgID+"/storage-regions", nil)
+	if err != nil {
+		return nil, err
+	}
+	var out ListStorageRegionsOutput
+	if err := c.do(req, &out); err != nil {
+		return nil, err
+	}
+	return out.Regions, nil
+}

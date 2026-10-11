@@ -45,7 +45,7 @@ var storageKeysListCmd = &cobra.Command{
 	},
 }
 
-var keyCreateBackend string
+var keyCreateRegion string
 
 var storageKeysCreateCmd = &cobra.Command{
 	Use:   "create <name>",
@@ -54,7 +54,9 @@ var storageKeysCreateCmd = &cobra.Command{
 
 The secret is shown once and cannot be retrieved afterwards — store it before
 moving on. A new key has no access to any bucket; grant it with
-dina storage keys grant.`,
+dina storage keys grant. A key works in one storage region and can only be
+granted buckets in that region; pass --region for a region other than the
+default.`,
 	Example: `  dina storage keys create my-app
   dina storage keys grant my-app uploads --read --write`,
 	Args: cobra.ExactArgs(1),
@@ -71,8 +73,8 @@ dina storage keys grant.`,
 			return err
 		}
 		issued, err := client.CreateStorageKey(orgID, api.CreateStorageKeyInput{
-			Name:    args[0],
-			Backend: keyCreateBackend,
+			Name:   args[0],
+			Region: keyCreateRegion,
 		})
 		if err != nil {
 			return err
@@ -315,7 +317,7 @@ func printIssuedKey(issued *api.IssuedStorageKey) {
 }
 
 func init() {
-	storageKeysCreateCmd.Flags().StringVar(&keyCreateBackend, "backend", "", "Backend to mint the credential on (omit while only one exists)")
+	storageKeysCreateCmd.Flags().StringVar(&keyCreateRegion, "region", "", "Storage region the key works in; it can only be granted buckets there (omit for the default)")
 
 	storageKeysRotateCmd.Flags().BoolVarP(&keyRotateForce, "force", "f", false, "Skip confirmation prompt")
 	storageKeysDeleteCmd.Flags().BoolVarP(&keyDeleteForce, "force", "f", false, "Skip confirmation prompt")

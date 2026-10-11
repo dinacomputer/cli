@@ -176,6 +176,11 @@ dina storage keys delete my-app --force
 dina storage keys grant my-app uploads --read --write
 dina storage keys grant my-app assets --read
 dina storage keys revoke my-app assets --force
+
+# regions (only when the organization has been given more than the default)
+dina storage regions
+dina storage buckets create eu-data --region p-eu-1
+dina storage keys create eu-app --region p-eu-1
 ` + "```" + `
 
 **Wiring an app to a bucket** — the full sequence:
@@ -187,7 +192,8 @@ dina storage keys grant my-app uploads --read --write
 dina storage buckets get uploads                     # endpoint, region, real bucket name
 dina apps env set -a my-app \
   AWS_ACCESS_KEY_ID=... AWS_SECRET_ACCESS_KEY=... \
-  S3_ENDPOINT=https://storage.<region>.dina.sh S3_BUCKET=<physical name>
+  S3_ENDPOINT=<endpoint from buckets get> AWS_REGION=<region from buckets get> \
+  S3_BUCKET=<physical name>
 ` + "```" + `
 
 Things that will bite you if you skip them:
@@ -204,6 +210,12 @@ Things that will bite you if you skip them:
 - **Path-style addressing is required.** Set ` + "`--endpoint-url`" + ` plus the client's
   force-path-style option (` + "`s3ForcePathStyle: true`" + `, ` + "`AWS_S3_FORCE_PATH_STYLE=true`" + `,
   boto's ` + "`s3={\"addressing_style\": \"path\"}`" + `). Virtual-host style will not resolve.
+- **A key works in one region.** Without ` + "`--region`" + ` buckets and keys go to the
+  default region. A key can only be granted buckets in its own region, so create
+  them with the same ` + "`--region`" + `. Each region has its own endpoint: always take
+  ` + "`S3_ENDPOINT`" + ` and the signing region from ` + "`dina storage buckets get`" + `, never
+  build them by hand. ` + "`dina storage regions`" + ` lists the regions the organization
+  has been given; there is no way to request one from the CLI.
 - **` + "`--public`" + ` is per bucket, not per object.** It serves *everything* in the bucket
   anonymously. Never put user data or anything secret in a public bucket.
 - **` + "`rotate`" + ` invalidates the old secret immediately.** Roll the new one out before

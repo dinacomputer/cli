@@ -294,7 +294,7 @@ type ListBucketsOutput struct {
 
 type CreateBucketInput struct {
 	Name         string `json:"name"`
-	Backend      string `json:"backend,omitempty"`
+	Region       string `json:"region,omitempty"`
 	Public       bool   `json:"public,omitempty"`
 	QuotaBytes   int64  `json:"quota_bytes,omitempty"`
 	QuotaObjects int64  `json:"quota_objects,omitempty"`
@@ -338,8 +338,18 @@ type ListStorageKeysOutput struct {
 }
 
 type CreateStorageKeyInput struct {
-	Name    string `json:"name"`
-	Backend string `json:"backend,omitempty"`
+	Name   string `json:"name"`
+	Region string `json:"region,omitempty"`
+}
+
+// StorageRegion is a region opened for the organization.
+type StorageRegion struct {
+	Name        string `json:"name"`
+	EndpointURL string `json:"endpoint_url"`
+}
+
+type ListStorageRegionsOutput struct {
+	Regions []StorageRegion `json:"regions"`
 }
 
 // IssuedStorageKey carries the one-time secret alongside the key record.
