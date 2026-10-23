@@ -22,6 +22,8 @@ Dina is a platform-as-a-service (PaaS) for deploying and managing containerized 
 - **Manage custom hostnames** for your apps
 - **Manage object storage**: S3-compatible buckets and the access keys that reach them
 - **Investigate production**: firing alerts, exceptions, logs, traces, metrics and service health from the organization's SigNoz instance
+- **Reach Kubernetes clusters** with kubectl through Dina
+- **Deploy from CI without secrets** via workload identity federation (GitHub Actions)
 - **Manage users** (admin operations)
 - **Report bugs and send feedback** to the Sokkel team
 
@@ -67,6 +69,20 @@ dina auth logout
 dina auth status
 ` + "```" + `
 
+### Organizations
+
+Apps, storage, observability and identity federation belong to an organization.
+Commands that take ` + "`--org`" + ` pick one in this order: ` + "`--org`" + `, the ` + "`DINA_ORG`" + ` env
+var, the active organization, then the account's only organization. With several
+and none selected, they error and list them.
+
+` + "```bash" + `
+dina orgs list          # * marks the active one
+dina orgs use acme      # set the active organization (id or name)
+dina orgs current       # which org commands act on, and why
+dina orgs unset         # clear it (logout clears it too)
+` + "```" + `
+
 ### Deploy
 
 Deploy from source (zips and uploads current directory):
@@ -103,14 +119,18 @@ The ` + "`--wait`" + ` flag polls the deployment status every 2 seconds until it
 # list all apps
 dina apps list
 
-# create a new app
+# create a new app (in the active organization, or pick one with --org)
 dina apps create my-app
+dina apps create my-app --org acme
 
 # show app details (URL, hostnames, latest deployment)
 dina apps info -a my-app
 
 # rename an app
 dina apps update -a my-app --name new-name
+
+# move an app into an organization (CI deploys reach only the org's apps)
+dina apps update -a my-app --org acme
 
 # delete an app (prompts for the app name to confirm — pass --force to skip)
 dina apps delete -a my-app --force
@@ -152,8 +172,7 @@ dina apps hostnames remove -a my-app example.com --force
 ### Object storage
 
 S3-compatible buckets plus the access keys applications authenticate with. Both
-are scoped to an organization; pass ` + "`--org`" + ` only when the account has more than
-one (the CLI errors and lists them if it can't pick).
+are scoped to an organization (see Organizations above for how one is picked).
 
 ` + "```bash" + `
 # buckets
@@ -231,8 +250,8 @@ Things that will bite you if you skip them:
 ### Observability
 
 Read-only access to the organization's SigNoz instance, for orgs where a platform
-operator has enabled it. ` + "`dina obs`" + ` is short for ` + "`dina observability`" + `. Pass
-` + "`--org`" + ` only when the account has more than one organization.
+operator has enabled it. ` + "`dina obs`" + ` is short for ` + "`dina observability`" + `. The
+organization is picked as described under Organizations.
 
 ` + "```bash" + `
 dina obs status                                   # enabled? where is the UI?
@@ -289,6 +308,53 @@ Things to know:
   to enable it; there is nothing to configure from the CLI.
 
 Every ` + "`dina obs`" + ` command supports ` + "`-o json`" + `.
+
+### Clusters
+
+` + "```bash" + `
+dina clusters list
+dina clusters connect <cluster>     # writes a kubectl context; kubectl then authenticates via dina
+kubectl get pods
+` + "```" + `
+
+Access is granted per cluster by a Dina operator. In CI, an organization's workloads get their own grant (see below).
+
+### CI: deploy from GitHub Actions without secrets
+
+Workload identity federation lets a GitHub Actions job exchange its OIDC token for a short-lived Dina token. No secret is stored. Set it up once per organization (the organization must already be linked to the identity server by a Dina operator):
+
+` + "```bash" + `
+dina identity federation create --name github-actions \
+  --issuer https://token.actions.githubusercontent.com \
+  --audience https://dina.sh
+
+dina identity mapping create --federation <federation-id> \
+  --match repository=acme/web --match ref=refs/heads/main \
+  --scope deploy --scope clusters
+` + "```" + `
+
+Scopes Dina understands from workloads:
+
+- ` + "`deploy`" + ` — deploy the organization's apps, and read their status, deployments and logs. Not env vars, hostnames, creating or deleting apps.
+- ` + "`clusters`" + ` — use the clusters the organization's workloads have been granted, as Kubernetes user ` + "`workload:<subject>`" + ` (e.g. ` + "`workload:repo:acme/web:ref:refs/heads/main`" + `).
+
+Workloads can't manage organizations, federations, mappings or storage. The app must belong to the organization (` + "`dina apps update -a my-app --org acme`" + `).
+
+In the workflow:
+
+` + "```yaml" + `
+permissions:
+  id-token: write
+  contents: read
+steps:
+  - uses: actions/checkout@v4
+  - run: curl -sSL https://raw.githubusercontent.com/dinacomputer/cli/main/install.sh | sh
+  - run: dina auth login --federated
+  - run: dina deploy -a my-app
+  - run: dina clusters connect prod-eu && kubectl rollout status deploy/web
+` + "```" + `
+
+The CLI re-exchanges the CI token automatically when the Dina token expires, so long jobs and kubectl keep working. If the exchange fails with "no claim mapping matched", the job's claims (repository, ref, environment) don't match any mapping.
 
 ### Users (admin)
 

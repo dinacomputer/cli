@@ -34,7 +34,7 @@ var identityMappingCmd = &cobra.Command{
 }
 
 func init() {
-	identityCmd.PersistentFlags().StringVar(&identityOrg, "org", "", "Organization id or name (defaults to your only organization)")
+	identityCmd.PersistentFlags().StringVar(&identityOrg, "org", "", orgFlagUsage)
 	identityCmd.AddCommand(identityFederationCmd)
 	identityCmd.AddCommand(identityMappingCmd)
 	rootCmd.AddCommand(identityCmd)

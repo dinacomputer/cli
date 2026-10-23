@@ -342,8 +342,8 @@ func (c *Client) ListApps() ([]GetAppOutput, error) {
 	return out.Apps, nil
 }
 
-func (c *Client) CreateApp(name string) (*App, error) {
-	req, err := c.newRequest("POST", "/apps", CreateAppInput{Name: name})
+func (c *Client) CreateApp(input CreateAppInput) (*App, error) {
+	req, err := c.newRequest("POST", "/apps", input)
 	if err != nil {
 		return nil, err
 	}

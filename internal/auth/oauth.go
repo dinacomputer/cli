@@ -175,6 +175,9 @@ func PKCELogin(clientID, resource string) (*Credentials, error) {
 
 // RefreshAccessToken uses a refresh token to obtain a new access token.
 func RefreshAccessToken(creds *Credentials) (*Credentials, error) {
+	if creds.RefreshToken == "" && creds.FederatedAudience != "" {
+		return FederatedLogin(FederatedOptions{Audience: creds.FederatedAudience})
+	}
 	if creds.RefreshToken == "" {
 		return nil, fmt.Errorf("no refresh token available, please run: dina auth login")
 	}

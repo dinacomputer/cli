@@ -14,13 +14,15 @@ type ErrorModel struct {
 // ---------- App ----------
 
 type CreateAppInput struct {
-	Name string `json:"name"`
+	Name  string `json:"name"`
+	OrgID string `json:"org_id,omitempty"`
 }
 
 type App struct {
 	ID        string     `json:"id"`
 	Name      string     `json:"name"`
 	OwnerID   string     `json:"owner_id"`
+	OrgID     string     `json:"org_id,omitempty"`
 	URL       string     `json:"url"`
 	Namespace string     `json:"namespace"`
 	CreatedAt time.Time  `json:"created_at"`
@@ -38,7 +40,8 @@ type GetAppOutput struct {
 }
 
 type UpdateAppInput struct {
-	Name string `json:"name,omitempty"`
+	Name  string `json:"name,omitempty"`
+	OrgID string `json:"org_id,omitempty"`
 }
 
 // ---------- Deploy ----------

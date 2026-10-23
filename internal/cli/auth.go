@@ -68,9 +68,13 @@ DINA_OIDC_TOKEN) for a short-lived Dina token — no stored secret required.`,
 var authLogoutCmd = &cobra.Command{
 	Use:   "logout",
 	Short: "Log out and clear stored credentials",
-	Long:  "Remove the stored OAuth credentials. Re-run `dina auth login` to authenticate again.",
+	Long:  "Remove the stored OAuth credentials and the active organization. Re-run `dina auth login` to authenticate again.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		if err := auth.ClearCredentials(); err != nil {
+			return err
+		}
+		// The active organization belongs to the account being logged out.
+		if err := clearActiveOrg(); err != nil {
 			return err
 		}
 		Infoln("Logged out.")

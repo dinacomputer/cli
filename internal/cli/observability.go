@@ -67,7 +67,7 @@ var obsStatusCmd = &cobra.Command{
 }
 
 func init() {
-	observabilityCmd.PersistentFlags().StringVar(&obsOrg, "org", "", "Organization id or name (defaults to your only organization)")
+	observabilityCmd.PersistentFlags().StringVar(&obsOrg, "org", "", orgFlagUsage)
 	observabilityCmd.AddCommand(obsStatusCmd)
 	rootCmd.AddCommand(observabilityCmd)
 }

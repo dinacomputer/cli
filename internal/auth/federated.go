@@ -66,6 +66,10 @@ func FederatedLogin(opts FederatedOptions) (*Credentials, error) {
 		AccessToken:  tok.AccessToken,
 		RefreshToken: tok.RefreshToken, // usually empty — CI re-federates each run
 		ExpiresAt:    time.Now().Add(time.Duration(tok.ExpiresIn) * time.Second),
+		// The identity server caps the token at the CI token's own lifetime,
+		// which can be minutes; remembering the audience lets the client
+		// re-federate instead of failing mid-job.
+		FederatedAudience: audience,
 	}
 	if err := SaveCredentials(creds); err != nil {
 		return nil, fmt.Errorf("saving credentials: %w", err)

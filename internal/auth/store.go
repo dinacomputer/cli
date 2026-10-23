@@ -12,10 +12,10 @@ const configDirName = "dina"
 
 // Credentials holds the persisted OAuth state.
 type Credentials struct {
-	ClientID     string    `json:"client_id,omitempty"`
-	ClientSecret string    `json:"client_secret,omitempty"`
-	Issuer       string    `json:"issuer,omitempty"`
-	APIBaseURL   string    `json:"api_base_url,omitempty"`
+	ClientID     string `json:"client_id,omitempty"`
+	ClientSecret string `json:"client_secret,omitempty"`
+	Issuer       string `json:"issuer,omitempty"`
+	APIBaseURL   string `json:"api_base_url,omitempty"`
 	// Resource is the RFC 8707 resource indicator the tokens are bound to
 	// (the API's identifier from its RFC 9728 metadata). Replayed on refresh
 	// so the new access token stays audience-bound to the same API.
@@ -23,6 +23,10 @@ type Credentials struct {
 	AccessToken  string    `json:"access_token"`
 	RefreshToken string    `json:"refresh_token,omitempty"`
 	ExpiresAt    time.Time `json:"expires_at"`
+	// FederatedAudience is set when the credentials came from workload
+	// identity federation. Those have no refresh token, so "refreshing" means
+	// exchanging a fresh CI OIDC token for this audience.
+	FederatedAudience string `json:"federated_audience,omitempty"`
 }
 
 // Expired returns true if the access token has expired (with a 30s buffer).

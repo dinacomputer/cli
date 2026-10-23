@@ -1,5 +1,6 @@
 // Package config manages the Dina CLI's persistent non-secret configuration:
-// CLI version last seen, list of installed skills, and check timestamps.
+// CLI version last seen, list of installed skills, check timestamps and the
+// active organization.
 //
 // Secrets (OAuth credentials) live separately in internal/auth.
 package config
@@ -26,6 +27,17 @@ type Config struct {
 
 	// Skills lists the installations recorded by `dina install --skills`.
 	Skills []InstalledSkill `json:"skills,omitempty"`
+
+	// ActiveOrg is the organization commands use when --org is not passed,
+	// set with `dina orgs use`.
+	ActiveOrg *ActiveOrg `json:"active_org,omitempty"`
+}
+
+// ActiveOrg records the selected organization. The name is kept only for
+// display; the id is what commands resolve against.
+type ActiveOrg struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // InstalledSkill records where a SKILL.md was written and whether the last

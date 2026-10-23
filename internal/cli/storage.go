@@ -40,7 +40,7 @@ var storageKeysCmd = &cobra.Command{
 }
 
 func init() {
-	storageCmd.PersistentFlags().StringVar(&storageOrg, "org", "", "Organization id or name (defaults to your only organization)")
+	storageCmd.PersistentFlags().StringVar(&storageOrg, "org", "", orgFlagUsage)
 	storageCmd.AddCommand(storageBucketsCmd)
 	storageCmd.AddCommand(storageKeysCmd)
 	storageCmd.AddCommand(storageRegionsCmd)
